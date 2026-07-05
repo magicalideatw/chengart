@@ -12,7 +12,7 @@ export function AboutSection() {
     <section id="about" className="bg-surface py-16 sm:py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
         <FadeIn>
-          <SectionHeader label="About" title="劇團介紹" />
+          <SectionHeader label="About" title="關於劇團" />
         </FadeIn>
 
         <div className="mt-10 grid gap-10 lg:mt-14 lg:grid-cols-2 lg:items-center lg:gap-16">
@@ -30,18 +30,8 @@ export function AboutSection() {
 
           <FadeIn delay={0.1}>
             <div>
-              <h3 className="text-xs font-medium uppercase tracking-[0.24em] text-gold">
-                {aboutContent.headline}
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-muted sm:text-base sm:leading-7">
+              <p className="text-sm leading-relaxed text-muted sm:text-base sm:leading-7">
                 {aboutContent.body}
-              </p>
-
-              <h3 className="mt-8 text-xs font-medium uppercase tracking-[0.24em] text-gold">
-                {aboutContent.spirit}
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-muted sm:text-base sm:leading-7">
-                專業、創意、有溫度 — 我們以藝術教育與演出服務，連結舞台與生活。
               </p>
 
               <div className="mt-10 grid grid-cols-3 gap-4 border-t border-border pt-8">

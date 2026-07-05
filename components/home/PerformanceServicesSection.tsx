@@ -9,13 +9,13 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 
 export function PerformanceServicesSection() {
   return (
-    <section id="services" className="bg-white py-16 sm:py-24 md:py-32">
+    <section id="performances" className="bg-white py-16 sm:py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
         <FadeIn>
           <SectionHeader
-            label="Services"
-            title="演出服務"
-            description="校園、企業、劇場與大型活動 — 專業策劃與執行。"
+            label="Performances"
+            title="演出"
+            description="校園巡演、企業活動、劇場演出與大型活動 — 專業策劃與執行。"
           />
         </FadeIn>
 

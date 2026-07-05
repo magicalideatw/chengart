@@ -4,7 +4,7 @@ export const siteConfig = {
   tagline: "Magic × Drama × Dance",
   slogan: "讓藝術成為每個人成長的力量",
   description:
-    "晟心誠藝劇團提供魔術、戲劇、舞蹈藝術教育，服務幼兒、兒童、青少年、成人、學校與企業。",
+    "晟心誠藝劇團提供魔術、戲劇、舞蹈藝術教育與專業演出服務，服務兒童、青少年、成人、學校與企業。",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://chengart.tw",
   email: "contact@chengart.tw",
   phone: "02-1234-5678",
@@ -17,26 +17,19 @@ export const siteConfig = {
 export const navLinks = [
   { label: "首頁", href: "/" },
   { label: "最新活動", href: "#activities" },
-  { label: "藝術課程", href: "#courses" },
-  { label: "演出服務", href: "#services" },
-  { label: "劇團介紹", href: "#about" },
-  { label: "聯絡我們", href: "#contact" },
+  { label: "課程", href: "#courses" },
+  { label: "演出", href: "#performances" },
+  { label: "關於", href: "#about" },
+  { label: "聯絡", href: "#contact" },
 ];
 
-export const footerLinks = {
-  explore: [
-    { label: "最新活動", href: "#activities" },
-    { label: "藝術課程", href: "#courses" },
-    { label: "演出服務", href: "#services" },
-    { label: "最新消息", href: "#news" },
-  ],
-  about: [
-    { label: "劇團介紹", href: "#about" },
-    { label: "師資團隊", href: "#faculty" },
-    { label: "合作夥伴", href: "#partners" },
-    { label: "聯絡我們", href: "#contact" },
-  ],
-};
+export const footerLinks = [
+  { label: "最新活動", href: "#activities" },
+  { label: "課程", href: "#courses" },
+  { label: "演出", href: "#performances" },
+  { label: "關於", href: "#about" },
+  { label: "聯絡", href: "#contact" },
+];
 
 export const heroVideo = {
   src: "https://videos.pexels.com/video-files/3129677/3129677-uhd_2560_1440_25fps.mp4",
