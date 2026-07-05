@@ -45,7 +45,7 @@ export function ActivitiesSection() {
                     {item.description}
                   </p>
                   <Link
-                    href={item.href}
+                    href={`/events/${item.slug}`}
                     className="mt-4 inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-white transition hover:bg-foreground/90"
                   >
                     立即報名

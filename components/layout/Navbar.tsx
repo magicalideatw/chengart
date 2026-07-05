@@ -4,9 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { navLinks, siteConfig } from "@/lib/data/site";
 
-export function Navbar() {
+type NavbarProps = {
+  variant?: "default" | "light";
+};
+
+export function Navbar({ variant = "default" }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const isLight = variant === "light";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -26,7 +31,7 @@ export function Navbar() {
     <>
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
-          scrolled
+          isLight || scrolled
             ? "border-b border-border bg-white/95 py-3 shadow-sm backdrop-blur-md"
             : "bg-black/20 py-4 backdrop-blur-sm md:py-5"
         }`}
@@ -34,11 +39,13 @@ export function Navbar() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 md:px-8">
           <Link
             href="/"
-            className={`transition-colors ${scrolled ? "text-foreground" : "text-white"}`}
+            className={`transition-colors ${
+              isLight || scrolled ? "text-foreground" : "text-white"
+            }`}
           >
             <span
               className={`block font-display font-semibold tracking-tight transition-all duration-500 ${
-                scrolled ? "text-sm md:text-base" : "text-base md:text-lg"
+                isLight || scrolled ? "text-sm md:text-base" : "text-base md:text-lg"
               }`}
             >
               {siteConfig.name}
@@ -51,7 +58,7 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={`text-[13px] font-medium transition-opacity hover:opacity-60 ${
-                  scrolled ? "text-foreground/80" : "text-white/90"
+                  isLight || scrolled ? "text-foreground/80" : "text-white/90"
                 }`}
               >
                 {link.label}
@@ -65,7 +72,7 @@ export function Navbar() {
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
             className={`flex h-10 w-10 items-center justify-center lg:hidden ${
-              menuOpen || scrolled ? "text-foreground" : "text-white"
+              menuOpen || isLight || scrolled ? "text-foreground" : "text-white"
             }`}
           >
             <div className="flex w-[18px] flex-col gap-[5px]">
