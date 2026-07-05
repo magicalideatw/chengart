@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import type { Event } from "@/src/data/events";
-import { canRegister } from "@/src/data/events";
+import { canRegister, isAdultEvent } from "@/src/data/events";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 type EventRegistrationFormProps = {
@@ -28,10 +28,31 @@ const initialForm: FormData = {
   note: "",
 };
 
+type FieldConfig = {
+  name: keyof Pick<FormData, "name" | "phone" | "email" | "childName" | "childAge">;
+  label: string;
+  type: string;
+  required: boolean;
+};
+
 export function EventRegistrationForm({ event }: EventRegistrationFormProps) {
   const [form, setForm] = useState<FormData>(initialForm);
   const [success, setSuccess] = useState(false);
   const open = canRegister(event);
+  const isAdult = isAdultEvent(event);
+
+  const baseFields: FieldConfig[] = [
+    { name: "name", label: "姓名", type: "text", required: true },
+    { name: "phone", label: "電話", type: "tel", required: true },
+    { name: "email", label: "Email", type: "email", required: true },
+  ];
+
+  const childFields: FieldConfig[] = [
+    { name: "childName", label: "孩子姓名", type: "text", required: true },
+    { name: "childAge", label: "孩子年齡", type: "text", required: true },
+  ];
+
+  const fields = isAdult ? baseFields : [...baseFields, ...childFields];
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -83,15 +104,7 @@ export function EventRegistrationForm({ event }: EventRegistrationFormProps) {
                 onSubmit={handleSubmit}
                 className="space-y-5"
               >
-                {(
-                  [
-                    { name: "name", label: "姓名", type: "text", required: true },
-                    { name: "phone", label: "電話", type: "tel", required: true },
-                    { name: "email", label: "Email", type: "email", required: true },
-                    { name: "childName", label: "孩子姓名", type: "text", required: true },
-                    { name: "childAge", label: "孩子年齡", type: "text", required: true },
-                  ] as const
-                ).map((field) => (
+                {fields.map((field) => (
                   <div key={field.name}>
                     <label
                       htmlFor={field.name}

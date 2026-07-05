@@ -23,6 +23,8 @@ export type EventFAQ = {
   answer: string;
 };
 
+export type AudienceType = "adult" | "child";
+
 export type Event = {
   id: string;
   slug: string;
@@ -35,6 +37,7 @@ export type Event = {
   time: string;
   location: string;
   age: string;
+  audienceType: AudienceType;
   price: string;
   heroImage: string;
   gallery: string[];
@@ -57,6 +60,7 @@ export const events: Event[] = [
     time: "14:00~16:00",
     location: "二階藝術空間",
     age: "6~12 歲",
+    audienceType: "child",
     price: "NT$ 2,800",
     heroImage:
       "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1600&q=80",
@@ -142,6 +146,7 @@ export const events: Event[] = [
     time: "09:30~16:30",
     location: "晟心誠藝劇團 台北工作室",
     age: "8~14 歲",
+    audienceType: "child",
     price: "NT$ 12,800",
     heroImage:
       "https://images.unsplash.com/photo-1503099229945-8938207465c0?w=1600&q=80",
@@ -210,6 +215,7 @@ export const events: Event[] = [
     time: "19:30~21:30",
     location: "台中教室",
     age: "18 歲以上",
+    audienceType: "adult",
     price: "NT$ 5,200",
     heroImage:
       "https://images.unsplash.com/photo-1507676184292-758854542ecc?w=1600&q=80",
@@ -273,6 +279,7 @@ export const events: Event[] = [
     time: "10:00~12:00",
     location: "二階藝術空間",
     age: "7~14 歲",
+    audienceType: "child",
     price: "NT$ 2,400",
     heroImage:
       "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1600&q=80",
@@ -310,6 +317,10 @@ export const events: Event[] = [
     ],
   },
 ];
+
+export function isAdultEvent(event: Event): boolean {
+  return event.audienceType === "adult";
+}
 
 export function getEventBySlug(slug: string): Event | undefined {
   return events.find((e) => e.slug === slug);
