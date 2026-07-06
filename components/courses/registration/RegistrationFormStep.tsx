@@ -24,7 +24,7 @@ export function RegistrationFormStep() {
           { name: "phone" as const, label: "電話", type: "tel" },
           { name: "email" as const, label: "Email", type: "email" },
           { name: "studentName" as const, label: "學員姓名", type: "text" },
-          { name: "studentAge" as const, label: "學員年齡", type: "text" },
+          { name: "studentAge" as const, label: "年齡", type: "text" },
         ] as const
       ).map((field) => (
         <div key={field.name}>
@@ -45,7 +45,7 @@ export function RegistrationFormStep() {
 
       <div>
         <p className="text-sm font-medium text-foreground">
-          第一次參加？ <span className="text-gold">*</span>
+          是否第一次參加 <span className="text-gold">*</span>
         </p>
         <div className="mt-3 flex gap-4">
           {(["yes", "no"] as const).map((value) => (

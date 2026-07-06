@@ -32,7 +32,7 @@ export function ClassSelectionStep({
             onClick={() => !isFull && onSelect(item.id)}
             className={`rounded-2xl border p-5 text-left transition-all ${
               isFull
-                ? "cursor-not-allowed border-border bg-surface opacity-50"
+                ? "cursor-not-allowed border-border bg-surface opacity-60"
                 : isSelected
                   ? "border-gold bg-white ring-2 ring-gold/30"
                   : "border-border bg-white hover:border-foreground/20"
@@ -43,12 +43,12 @@ export function ClassSelectionStep({
             >
               {item.name}
             </p>
-            <p className={`mt-1 text-sm ${isFull ? "text-mist" : "text-muted"}`}>
-              {item.time}
-            </p>
-            <p className={`mt-4 text-sm font-medium ${isFull ? "text-mist" : "text-emerald-600"}`}>
-              {isFull ? "🔴 已額滿" : "🟢 可報名"}
-            </p>
+            {!isFull && (
+              <p className="mt-1 text-sm text-muted">{item.time}</p>
+            )}
+            {isFull && (
+              <p className="mt-3 text-sm font-medium text-mist">🔴 已額滿</p>
+            )}
           </motion.button>
         );
       })}

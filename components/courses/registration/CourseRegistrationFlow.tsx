@@ -17,7 +17,6 @@ import { DateSelectionStep } from "./DateSelectionStep";
 import { ClassSelectionStep } from "./ClassSelectionStep";
 import { RegistrationFormStep } from "./RegistrationFormStep";
 import { ConfirmStep } from "./ConfirmStep";
-import { RegistrationSuccessScreen } from "./RegistrationSuccessScreen";
 
 type CourseRegistrationFlowProps = {
   course: RegistrationCourse;
@@ -32,13 +31,6 @@ const defaultValues: RegistrationFormValues = {
   isFirstTime: "yes",
   note: "",
 };
-
-async function submitRegistration(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  if (Math.random() < 0.05) {
-    throw new Error("submit failed");
-  }
-}
 
 function getCurrentStep(
   selectedDate: string | null,
@@ -56,9 +48,7 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
+  const [paymentToastVisible, setPaymentToastVisible] = useState(false);
 
   const methods = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationFormSchema),
@@ -91,18 +81,8 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
     }, 100);
   });
 
-  const handleSubmit = async () => {
-    if (isSubmitting || !selectedDate || !selectedClassId) return;
-
-    setIsSubmitting(true);
-    try {
-      await submitRegistration();
-      setIsSuccess(true);
-    } catch {
-      setToastVisible(true);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handlePayment = () => {
+    setPaymentToastVisible(true);
   };
 
   const dateOption = selectedDate
@@ -190,37 +170,19 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
                 >
                   <StepHeader step={4} title="確認資料" />
                   <ConfirmStep
+                    courseTitle={course.title}
                     dateLabel={dateOption.dayLabel}
-                    schedule={dateOption.schedule}
                     className={selectedClass.name}
                     classTime={selectedClass.time}
                     formData={formData}
                   />
-                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(false)}
-                      disabled={isSubmitting}
-                      className="rounded-full border border-border px-6 py-3 text-sm font-medium text-foreground transition hover:border-foreground/30 disabled:opacity-50"
-                    >
-                      返回修改
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gold px-6 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                          送出中...
-                        </>
-                      ) : (
-                        "立即報名"
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePayment}
+                    className="mt-8 w-full rounded-full bg-gold px-6 py-4 text-sm font-medium text-white transition hover:bg-gold-light"
+                  >
+                    前往付款
+                  </button>
                 </motion.div>
               )}
             </div>
@@ -228,12 +190,10 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
         </section>
       </div>
 
-      {isSuccess && <RegistrationSuccessScreen />}
-
       <Toast
-        message="請稍後再試。"
-        visible={toastVisible}
-        onClose={() => setToastVisible(false)}
+        title="付款功能建置中"
+        visible={paymentToastVisible}
+        onClose={() => setPaymentToastVisible(false)}
       />
     </>
   );
