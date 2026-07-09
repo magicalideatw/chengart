@@ -21,7 +21,7 @@ export async function getAuthenticatedUser() {
 export async function requireAuthenticatedUser() {
   const user = await getAuthenticatedUser();
   if (!user) {
-    redirect("/admin/login");
+    redirect("/login");
   }
   return user;
 }
