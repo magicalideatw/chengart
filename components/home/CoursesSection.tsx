@@ -1,9 +1,13 @@
-import { courseListings } from "@/lib/data/course-listings";
+import { getPublicCourses } from "@/lib/courses/queries";
 import { CourseCard } from "@/components/home/CourseCard";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 
-export function CoursesSection() {
+export const dynamic = "force-dynamic";
+
+export async function CoursesSection() {
+  const courses = await getPublicCourses();
+
   return (
     <section id="courses" className="bg-surface py-16 sm:py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
@@ -15,11 +19,17 @@ export function CoursesSection() {
           />
         </FadeIn>
 
-        <div className="mt-10 grid gap-5 sm:mt-14 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-          {courseListings.map((course, i) => (
-            <CourseCard key={course.id} course={course} index={i} />
-          ))}
-        </div>
+        {courses.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-muted">
+            目前尚無開放報名的課程
+          </p>
+        ) : (
+          <div className="mt-10 grid gap-5 sm:mt-14 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+            {courses.map((course, i) => (
+              <CourseCard key={course.id} course={course} index={i} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

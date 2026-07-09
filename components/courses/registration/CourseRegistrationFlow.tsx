@@ -1,25 +1,24 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
-import type { RegistrationCourse } from "@/src/data/courses";
-import { findClassById, findDateOption } from "@/src/data/courses";
+import { createRegistrationOrder } from "@/lib/actions/payment";
+import { formatFee, formatSessionDate } from "@/lib/admin/format";
+import type { CourseWithEnrollment } from "@/lib/courses/types";
 import {
   registrationFormSchema,
   type RegistrationFormValues,
 } from "@/lib/validation/registration-schema";
-import { Toast } from "@/components/ui/Toast";
 import { CourseRegistrationHero } from "./CourseRegistrationHero";
 import { StepIndicator, StepHeader } from "./StepIndicator";
-import { DateSelectionStep } from "./DateSelectionStep";
-import { ClassSelectionStep } from "./ClassSelectionStep";
 import { RegistrationFormStep } from "./RegistrationFormStep";
 import { ConfirmStep } from "./ConfirmStep";
 
 type CourseRegistrationFlowProps = {
-  course: RegistrationCourse;
+  course: CourseWithEnrollment;
 };
 
 const defaultValues: RegistrationFormValues = {
@@ -32,23 +31,16 @@ const defaultValues: RegistrationFormValues = {
   note: "",
 };
 
-function getCurrentStep(
-  selectedDate: string | null,
-  selectedClassId: string | null,
-  showConfirm: boolean,
-): number {
-  if (showConfirm) return 4;
-  if (selectedClassId) return 3;
-  if (selectedDate) return 2;
-  return 1;
-}
+const steps = ["填寫資料", "確認並付款"];
 
 export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) {
   const formRef = useRef<HTMLDivElement>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [paymentToastVisible, setPaymentToastVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  const canRegister = course.isOpen && !course.isFull;
 
   const methods = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationFormSchema),
@@ -60,19 +52,9 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setSelectedClassId(null);
-    setShowConfirm(false);
-  };
-
-  const handleClassSelect = (classId: string) => {
-    setSelectedClassId(classId);
-    setShowConfirm(false);
-  };
-
   const handleNextFromForm = methods.handleSubmit(() => {
     setShowConfirm(true);
+    setErrorMessage(null);
     setTimeout(() => {
       document.getElementById("step-confirm")?.scrollIntoView({
         behavior: "smooth",
@@ -81,74 +63,46 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
     }, 100);
   });
 
-  const handlePayment = () => {
-    setPaymentToastVisible(true);
+  const handleConfirmRegistration = () => {
+    setErrorMessage(null);
+
+    startTransition(async () => {
+      const result = await createRegistrationOrder({
+        courseId: course.id,
+        formData: methods.getValues(),
+      });
+
+      if (result.success) {
+        router.push(result.checkoutPath);
+        return;
+      }
+
+      setErrorMessage(result.error);
+    });
   };
 
-  const dateOption = selectedDate
-    ? findDateOption(course, selectedDate)
-    : undefined;
-  const selectedClass =
-    selectedDate && selectedClassId
-      ? findClassById(course, selectedDate, selectedClassId)
-      : undefined;
-
   const formData = methods.watch();
-  const currentStep = getCurrentStep(
-    selectedDate,
-    selectedClassId,
-    showConfirm,
-  );
+  const currentStep = showConfirm ? 2 : 1;
 
   return (
     <>
       <CourseRegistrationHero course={course} onRegister={scrollToForm} />
 
-      <div ref={formRef} id="register" className="scroll-mt-20">
-        <section className="mx-auto max-w-3xl px-5 py-16 sm:py-24 md:px-8">
-          <StepIndicator currentStep={currentStep} />
+      {canRegister && (
+        <div ref={formRef} id="register" className="scroll-mt-20">
+          <section className="mx-auto max-w-3xl px-5 py-16 sm:py-24 md:px-8">
+            <StepIndicator steps={steps} currentStep={currentStep} />
 
-          <FormProvider {...methods}>
-            <div className="mt-12 space-y-16">
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <StepHeader step={1} title="請選擇日期" />
-                <DateSelectionStep
-                  dates={course.dates}
-                  selectedDate={selectedDate}
-                  onSelect={handleDateSelect}
-                />
-              </motion.div>
-
-              {selectedDate && dateOption && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="border-t border-border pt-16"
-                >
-                  <StepHeader step={2} title="請選擇班級" />
-                  <ClassSelectionStep
-                    classes={dateOption.classes}
-                    selectedClassId={selectedClassId}
-                    onSelect={handleClassSelect}
-                  />
-                </motion.div>
-              )}
-
-              {selectedClassId && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="border-t border-border pt-16"
-                >
-                  <StepHeader step={3} title="填寫資料" />
-                  <RegistrationFormStep />
-                  {!showConfirm && (
+            <FormProvider {...methods}>
+              <div className="mt-12 space-y-16">
+                {!showConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <StepHeader step={1} title="填寫資料" />
+                    <RegistrationFormStep />
                     <button
                       type="button"
                       onClick={handleNextFromForm}
@@ -156,45 +110,56 @@ export function CourseRegistrationFlow({ course }: CourseRegistrationFlowProps) 
                     >
                       確認資料
                     </button>
-                  )}
-                </motion.div>
-              )}
+                  </motion.div>
+                )}
 
-              {showConfirm && dateOption && selectedClass && (
-                <motion.div
-                  id="step-confirm"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="scroll-mt-24 border-t border-border pt-16"
-                >
-                  <StepHeader step={4} title="確認資料" />
-                  <ConfirmStep
-                    courseTitle={course.title}
-                    dateLabel={dateOption.dayLabel}
-                    className={selectedClass.name}
-                    classTime={selectedClass.time}
-                    formData={formData}
-                  />
-                  <button
-                    type="button"
-                    onClick={handlePayment}
-                    className="mt-8 w-full rounded-full bg-gold px-6 py-4 text-sm font-medium text-white transition hover:bg-gold-light"
+                {showConfirm && (
+                  <motion.div
+                    id="step-confirm"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="scroll-mt-24"
                   >
-                    前往付款
-                  </button>
-                </motion.div>
-              )}
-            </div>
-          </FormProvider>
-        </section>
-      </div>
+                    <StepHeader step={2} title="確認並付款" />
+                    <ConfirmStep
+                      dateLabel={formatSessionDate(course.sessionDate)}
+                      className={course.title}
+                      classTime={course.sessionTime}
+                      feeLabel={formatFee(course.fee)}
+                      formData={formData}
+                    />
 
-      <Toast
-        title="付款功能建置中"
-        visible={paymentToastVisible}
-        onClose={() => setPaymentToastVisible(false)}
-      />
+                    {errorMessage && (
+                      <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {errorMessage}
+                      </p>
+                    )}
+
+                    <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(false)}
+                        className="rounded-full border border-border px-6 py-4 text-sm font-medium text-foreground transition hover:bg-surface"
+                      >
+                        返回修改
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmRegistration}
+                        disabled={isPending}
+                        className="rounded-full bg-gold px-6 py-4 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isPending ? "建立訂單中…" : "前往綠界付款"}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </FormProvider>
+          </section>
+        </div>
+      )}
     </>
   );
 }

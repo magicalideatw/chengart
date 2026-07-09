@@ -1,0 +1,22 @@
+import { z } from "zod";
+import { COURSE_CATEGORIES } from "@/lib/courses/types";
+
+export const adminCourseSchema = z.object({
+  title: z.string().min(1, "請填寫課程名稱"),
+  category: z
+    .string()
+    .min(1, "請選擇課程分類")
+    .refine(
+      (value) => COURSE_CATEGORIES.includes(value as (typeof COURSE_CATEGORIES)[number]),
+      { message: "請選擇課程分類" },
+    ),
+  description: z.string().min(1, "請填寫課程介紹"),
+  sessionDate: z.string().min(1, "請填寫上課日期"),
+  sessionTime: z.string().min(1, "請填寫上課時間"),
+  capacity: z.coerce.number().int().min(1, "名額至少為 1"),
+  fee: z.coerce.number().int().min(0, "費用不可為負數"),
+  coverImage: z.string().url("請輸入有效的圖片網址"),
+  isOpen: z.boolean(),
+});
+
+export type AdminCourseFormValues = z.infer<typeof adminCourseSchema>;

@@ -38,16 +38,20 @@ export function ClassSelectionStep({
                   : "border-border bg-white hover:border-foreground/20"
             }`}
           >
-            <p
-              className={`font-display text-lg font-semibold ${isFull ? "text-mist" : "text-foreground"}`}
-            >
-              {item.name}
-            </p>
-            {!isFull && (
-              <p className="mt-1 text-sm text-muted">{item.time}</p>
-            )}
-            {isFull && (
-              <p className="mt-3 text-sm font-medium text-mist">🔴 已額滿</p>
+            {isFull ? (
+              <>
+                <p className="font-display text-lg font-semibold text-mist">
+                  {item.name}
+                </p>
+                <p className="mt-3 flex items-center gap-2 text-sm text-mist">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                  已額滿
+                </p>
+              </>
+            ) : (
+              <p className="font-display text-lg font-semibold text-foreground">
+                {item.name}｜{item.time}
+              </p>
             )}
           </motion.button>
         );

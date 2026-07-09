@@ -2,13 +2,17 @@
 
 import { motion } from "framer-motion";
 
-const steps = ["選擇日期", "選擇班級", "填寫資料", "確認報名"];
-
 type StepIndicatorProps = {
+  steps?: string[];
   currentStep: number;
 };
 
-export function StepIndicator({ currentStep }: StepIndicatorProps) {
+const defaultSteps = ["選擇日期", "選擇班級", "填寫資料", "確認報名"];
+
+export function StepIndicator({
+  steps = defaultSteps,
+  currentStep,
+}: StepIndicatorProps) {
   return (
     <div className="flex items-center justify-between gap-2">
       {steps.map((label, i) => {

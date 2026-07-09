@@ -1,3 +1,5 @@
+import { buildDanceDateOptions } from "@/src/data/dance-registration";
+
 export type CourseClass = {
   id: string;
   name: string;
@@ -25,46 +27,12 @@ export type RegistrationCourse = {
 export const courses: Record<string, RegistrationCourse> = {
   dance: {
     slug: "dance",
-    title: "常態舞蹈課程",
+    title: "常態舞蹈課",
     subtitle: "讓藝術成為生活的一部分，建立自信、律動與舞台魅力。",
     location: "二階藝術空間",
     coverImage:
       "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1600&q=80",
-    dates: [
-      {
-        date: "2026-07-12",
-        dayLabel: "7/12（六）",
-        schedule: "每週六",
-        classes: [
-          { id: "A", name: "A班", time: "14:00–15:00", capacity: 5, full: false },
-          { id: "B", name: "B班", time: "15:30–16:30", capacity: 5, full: false },
-          { id: "C", name: "C班", time: "17:00–18:00", capacity: 5, full: true },
-          { id: "D", name: "D班", time: "18:30–19:30", capacity: 5, full: false },
-        ],
-      },
-      {
-        date: "2026-07-19",
-        dayLabel: "7/19（六）",
-        schedule: "每週六",
-        classes: [
-          { id: "A", name: "A班", time: "14:00–15:00", capacity: 5, full: false },
-          { id: "B", name: "B班", time: "15:30–16:30", capacity: 5, full: true },
-          { id: "C", name: "C班", time: "17:00–18:00", capacity: 5, full: false },
-          { id: "D", name: "D班", time: "18:30–19:30", capacity: 5, full: false },
-        ],
-      },
-      {
-        date: "2026-07-26",
-        dayLabel: "7/26（六）",
-        schedule: "每週六",
-        classes: [
-          { id: "A", name: "A班", time: "14:00–15:00", capacity: 5, full: false },
-          { id: "B", name: "B班", time: "15:30–16:30", capacity: 5, full: false },
-          { id: "C", name: "C班", time: "17:00–18:00", capacity: 5, full: false },
-          { id: "D", name: "D班", time: "18:30–19:30", capacity: 5, full: false },
-        ],
-      },
-    ],
+    dates: [],
   },
   magic: {
     slug: "magic",
@@ -79,9 +47,9 @@ export const courses: Record<string, RegistrationCourse> = {
         dayLabel: "7/13（日）",
         schedule: "每週日",
         classes: [
-          { id: "A", name: "A班", time: "10:00–11:30", capacity: 8, full: false },
-          { id: "B", name: "B班", time: "14:00–15:30", capacity: 8, full: false },
-          { id: "C", name: "C班", time: "16:00–17:30", capacity: 8, full: false },
+          { id: "A", name: "A班", time: "10:00–11:30", capacity: 5, full: false },
+          { id: "B", name: "B班", time: "14:00–15:30", capacity: 5, full: false },
+          { id: "C", name: "C班", time: "16:00–17:30", capacity: 5, full: false },
         ],
       },
       {
@@ -89,9 +57,9 @@ export const courses: Record<string, RegistrationCourse> = {
         dayLabel: "7/20（日）",
         schedule: "每週日",
         classes: [
-          { id: "A", name: "A班", time: "10:00–11:30", capacity: 8, full: true },
-          { id: "B", name: "B班", time: "14:00–15:30", capacity: 8, full: false },
-          { id: "C", name: "C班", time: "16:00–17:30", capacity: 8, full: false },
+          { id: "A", name: "A班", time: "10:00–11:30", capacity: 5, full: false },
+          { id: "B", name: "B班", time: "14:00–15:30", capacity: 5, full: false },
+          { id: "C", name: "C班", time: "16:00–17:30", capacity: 5, full: false },
         ],
       },
     ],
@@ -109,8 +77,8 @@ export const courses: Record<string, RegistrationCourse> = {
         dayLabel: "7/14（一）",
         schedule: "每週一",
         classes: [
-          { id: "A", name: "A班", time: "16:00–17:30", capacity: 10, full: false },
-          { id: "B", name: "B班", time: "18:00–19:30", capacity: 10, full: false },
+          { id: "A", name: "A班", time: "16:00–17:30", capacity: 5, full: false },
+          { id: "B", name: "B班", time: "18:00–19:30", capacity: 5, full: false },
         ],
       },
       {
@@ -118,8 +86,8 @@ export const courses: Record<string, RegistrationCourse> = {
         dayLabel: "7/21（一）",
         schedule: "每週一",
         classes: [
-          { id: "A", name: "A班", time: "16:00–17:30", capacity: 10, full: false },
-          { id: "B", name: "B班", time: "18:00–19:30", capacity: 10, full: true },
+          { id: "A", name: "A班", time: "16:00–17:30", capacity: 5, full: false },
+          { id: "B", name: "B班", time: "18:00–19:30", capacity: 5, full: false },
         ],
       },
     ],
@@ -137,8 +105,8 @@ export const courses: Record<string, RegistrationCourse> = {
         dayLabel: "7/15 — 7/19",
         schedule: "夏令營",
         classes: [
-          { id: "A", name: "A組", time: "09:30–16:30", capacity: 20, full: false },
-          { id: "B", name: "B組", time: "09:30–16:30", capacity: 20, full: true },
+          { id: "A", name: "A組", time: "09:30–16:30", capacity: 5, full: false },
+          { id: "B", name: "B組", time: "09:30–16:30", capacity: 5, full: false },
         ],
       },
     ],
@@ -146,7 +114,14 @@ export const courses: Record<string, RegistrationCourse> = {
 };
 
 export function getCourseBySlug(slug: string): RegistrationCourse | undefined {
-  return courses[slug];
+  const course = courses[slug];
+  if (!course) return undefined;
+
+  if (slug === "dance") {
+    return { ...course, dates: buildDanceDateOptions() };
+  }
+
+  return course;
 }
 
 export function getAllCourseSlugs(): string[] {

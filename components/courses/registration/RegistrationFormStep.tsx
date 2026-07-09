@@ -23,7 +23,7 @@ export function RegistrationFormStep() {
           { name: "name" as const, label: "姓名", type: "text" },
           { name: "phone" as const, label: "電話", type: "tel" },
           { name: "email" as const, label: "Email", type: "email" },
-          { name: "studentName" as const, label: "學員姓名", type: "text" },
+          { name: "studentName" as const, label: "學生姓名", type: "text" },
           { name: "studentAge" as const, label: "年齡", type: "text" },
         ] as const
       ).map((field) => (

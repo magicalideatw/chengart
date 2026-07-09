@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import type { RegistrationCourse } from "@/src/data/courses";
+import { formatFee, formatSessionDate } from "@/lib/admin/format";
+import type { CourseWithEnrollment } from "@/lib/courses/types";
 
 type CourseRegistrationHeroProps = {
-  course: RegistrationCourse;
+  course: CourseWithEnrollment;
   onRegister: () => void;
 };
 
@@ -14,6 +14,8 @@ export function CourseRegistrationHero({
   course,
   onRegister,
 }: CourseRegistrationHeroProps) {
+  const canRegister = course.isOpen && !course.isFull;
+
   return (
     <section className="relative">
       <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-[21/9]">
@@ -35,21 +37,38 @@ export function CourseRegistrationHero({
           transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
         >
           <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-gold">
-            {course.location}
+            {course.category}
           </p>
           <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
             {course.title}
           </h1>
           <p className="text-balance mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/80 sm:text-base">
-            {course.subtitle}
+            {course.description}
           </p>
-          <button
-            type="button"
-            onClick={onRegister}
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
-          >
-            立即報名
-          </button>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-white/80">
+            <span className="rounded-full border border-white/20 px-3 py-1">
+              {formatSessionDate(course.sessionDate)} · {course.sessionTime}
+            </span>
+            <span className="rounded-full border border-white/20 px-3 py-1">
+              名額 {course.enrollmentCount}/{course.capacity}
+            </span>
+            <span className="rounded-full border border-white/20 px-3 py-1">
+              {formatFee(course.fee)}
+            </span>
+          </div>
+          {canRegister ? (
+            <button
+              type="button"
+              onClick={onRegister}
+              className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
+            >
+              立即報名
+            </button>
+          ) : (
+            <p className="mt-8 inline-flex rounded-full border border-white/20 bg-black/30 px-6 py-3 text-sm text-white/80">
+              {!course.isOpen ? "目前未開放報名" : "已額滿"}
+            </p>
+          )}
         </motion.div>
       </div>
     </section>

@@ -15,7 +15,7 @@ export function DateSelectionStep({
   onSelect,
 }: DateSelectionStepProps) {
   return (
-    <div className="mt-8 grid gap-3 sm:grid-cols-3 sm:gap-4">
+    <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
       {dates.map((item, i) => {
         const isSelected = selectedDate === item.date;
 
@@ -25,21 +25,21 @@ export function DateSelectionStep({
             type="button"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: i * 0.06 }}
+            transition={{ duration: 0.5, delay: Math.min(i * 0.04, 0.4) }}
             whileHover={!isSelected ? { y: -2 } : undefined}
             whileTap={!isSelected ? { scale: 0.98 } : undefined}
             onClick={() => onSelect(item.date)}
-            className={`rounded-2xl border bg-white p-5 text-left transition-all ${
+            className={`rounded-2xl border bg-white p-4 text-left transition-all sm:p-5 ${
               isSelected
                 ? "border-gold ring-2 ring-gold/30"
                 : "border-border hover:border-foreground/20"
             }`}
           >
-            <p className="font-display text-lg font-semibold text-foreground">
+            <p className="font-display text-base font-semibold text-foreground sm:text-lg">
               {item.dayLabel}
             </p>
-            <p className="mt-1 text-sm text-muted">{item.schedule}</p>
-            <div className="mt-4 flex items-center gap-2">
+            <p className="mt-1 text-xs text-muted sm:text-sm">{item.schedule}</p>
+            <div className="mt-3 flex items-center gap-2 sm:mt-4">
               <span
                 className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
                   isSelected

@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import type { CourseListing } from "@/lib/data/course-listings";
+import { formatFee } from "@/lib/admin/format";
+import type { CourseListing } from "@/lib/courses/types";
 
 type CourseCardProps = {
   course: CourseListing;
@@ -43,14 +44,12 @@ export function CourseCard({ course, index }: CourseCardProps) {
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {course.audiences.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground/70"
-            >
-              🏷 {tag}
-            </span>
-          ))}
+          <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground/70">
+            🏷 {course.category}
+          </span>
+          <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground/70">
+            {formatFee(course.fee)}
+          </span>
         </div>
 
         <Link
