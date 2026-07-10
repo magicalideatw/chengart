@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
 import {
   deleteRegistration,
   updateRegistration,
@@ -10,7 +10,6 @@ import {
 import {
   formatCourseLabel,
   formatDateTime,
-  formatSessionDate,
 } from "@/lib/admin/format";
 import type { AdminRegistration } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
@@ -30,6 +29,9 @@ const STATUS_STYLES: Record<AdminRegistration["status"], string> = {
   cancelled: "bg-surface text-muted",
 };
 
+type SortKey = "created_at" | "sessionDate" | "className";
+type SortDirection = "asc" | "desc";
+
 type RegistrationTableProps = {
   registrations: AdminRegistration[];
   courses: Course[];
@@ -41,26 +43,93 @@ type ToastState = {
   message?: string;
 };
 
+function SortButton({
+  label,
+  active,
+  direction,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDirection;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 transition ${
+        active ? "text-foreground" : "text-muted hover:text-foreground"
+      }`}
+    >
+      {label}
+      {active ? (
+        direction === "asc" ? (
+          <ArrowUp className="h-3.5 w-3.5" />
+        ) : (
+          <ArrowDown className="h-3.5 w-3.5" />
+        )
+      ) : null}
+    </button>
+  );
+}
+
 export function RegistrationTable({
   registrations,
   courses,
   canMutate,
 }: RegistrationTableProps) {
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [editing, setEditing] = useState<AdminRegistration | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection(key === "created_at" ? "desc" : "asc");
+  };
+
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return registrations;
+    const matched = keyword
+      ? registrations.filter((item) =>
+          [
+            item.name,
+            item.student_name,
+            item.email,
+            item.phone,
+            item.courseTitle,
+            item.sessionDateLabel,
+            item.sessionDate,
+            item.sessionTime,
+            item.className,
+          ].some((value) => value.toLowerCase().includes(keyword)),
+        )
+      : registrations;
 
-    return registrations.filter((item) =>
-      [item.name, item.student_name]
-        .some((value) => value.toLowerCase().includes(keyword)),
-    );
-  }, [registrations, query]);
+    return [...matched].sort((a, b) => {
+      let compare = 0;
+
+      if (sortKey === "sessionDate") {
+        compare = a.sessionDate.localeCompare(b.sessionDate);
+      } else if (sortKey === "className") {
+        compare = a.className.localeCompare(b.className, "zh-Hant");
+      } else {
+        compare =
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+
+      return sortDirection === "asc" ? compare : -compare;
+    });
+  }, [registrations, query, sortDirection, sortKey]);
 
   const showToast = (title: string, message?: string) => {
     setToast({ title, message });
@@ -127,6 +196,7 @@ export function RegistrationTable({
           value={query}
           onChange={setQuery}
           resultCount={filtered.length}
+          placeholder="搜尋姓名、日期、班別、時間…"
         />
 
         <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
@@ -135,21 +205,32 @@ export function RegistrationTable({
               <thead className="border-b border-border bg-surface">
                 <tr>
                   {[
-                    "姓名",
-                    "電話",
-                    "Email",
-                    "課程",
-                    "付款狀態",
-                    "日期",
-                    "人數",
-                    "建立時間",
-                    "操作",
-                  ].map((label) => (
+                    { label: "姓名", sortable: false },
+                    { label: "電話", sortable: false },
+                    { label: "Email", sortable: false },
+                    { label: "課程", sortable: false },
+                    { label: "付款狀態", sortable: false },
+                    { label: "上課日期", sortable: true, key: "sessionDate" as const },
+                    { label: "上課時間", sortable: false },
+                    { label: "班別", sortable: true, key: "className" as const },
+                    { label: "人數", sortable: false },
+                    { label: "建立時間", sortable: true, key: "created_at" as const },
+                    { label: "操作", sortable: false },
+                  ].map((column) => (
                     <th
-                      key={label}
+                      key={column.label}
                       className="whitespace-nowrap px-4 py-4 font-medium text-muted first:pl-6 last:pr-6"
                     >
-                      {label}
+                      {column.sortable && column.key ? (
+                        <SortButton
+                          label={column.label}
+                          active={sortKey === column.key}
+                          direction={sortDirection}
+                          onClick={() => toggleSort(column.key!)}
+                        />
+                      ) : (
+                        column.label
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -158,7 +239,7 @@ export function RegistrationTable({
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={11}
                       className="px-6 py-16 text-center text-muted"
                     >
                       {query ? "找不到符合的報名資料" : "目前尚無報名資料"}
@@ -181,9 +262,6 @@ export function RegistrationTable({
                       </td>
                       <td className="min-w-[180px] px-4 py-4 text-foreground">
                         {formatCourseLabel(item.courseTitle, item.courseCategory)}
-                        <div className="mt-1 text-xs text-muted">
-                          {item.sessionTime}
-                        </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-4">
                         <span
@@ -193,7 +271,13 @@ export function RegistrationTable({
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {formatSessionDate(item.sessionDate)}
+                        {item.sessionDateLabel}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                        {item.sessionTime}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                        {item.className}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-foreground">
                         <span className="inline-flex rounded-full bg-gold-soft px-2.5 py-1 text-xs font-medium text-gold">

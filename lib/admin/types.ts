@@ -1,8 +1,18 @@
 export type RegistrationPaymentStatus = "pending" | "paid" | "cancelled";
 
+export type AdminSessionSlot = {
+  date: string;
+  dateLabel: string;
+  timeLabel: string;
+  className: string;
+  detailLine: string;
+};
+
 export type AdminRegistration = {
   id: string;
   course_id: string;
+  order_id: string | null;
+  session_id: string | null;
   status: RegistrationPaymentStatus;
   name: string;
   phone: string;
@@ -15,7 +25,11 @@ export type AdminRegistration = {
   courseTitle: string;
   courseCategory: string;
   sessionDate: string;
+  sessionDateLabel: string;
   sessionTime: string;
+  className: string;
+  sessionDetailLine: string;
+  orderSessionSlots: AdminSessionSlot[];
   slotEnrollment: number;
   maxCapacity: number;
 };

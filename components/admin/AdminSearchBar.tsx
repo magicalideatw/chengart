@@ -6,12 +6,14 @@ type AdminSearchBarProps = {
   value: string;
   onChange: (value: string) => void;
   resultCount: number;
+  placeholder?: string;
 };
 
 export function AdminSearchBar({
   value,
   onChange,
   resultCount,
+  placeholder = "搜尋姓名…",
 }: AdminSearchBarProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -21,7 +23,7 @@ export function AdminSearchBar({
           type="search"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="搜尋姓名…"
+          placeholder={placeholder}
           className="w-full rounded-full border border-border bg-white py-3 pl-11 pr-4 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold"
         />
       </div>

@@ -39,6 +39,10 @@ export function RegistrationEditModal({
   const [error, setError] = useState<string | null>(null);
 
   const selectedCourse = courses.find((course) => course.id === form.courseId);
+  const multiSessionSlots =
+    registration.orderSessionSlots.length > 1
+      ? registration.orderSessionSlots
+      : [];
 
   const updateField = <K extends keyof typeof form>(
     key: K,
@@ -63,8 +67,15 @@ export function RegistrationEditModal({
       note: form.note || null,
       courseTitle: selectedCourse?.title ?? registration.courseTitle,
       courseCategory: selectedCourse?.category ?? registration.courseCategory,
-      sessionDate: selectedCourse?.sessionDate ?? registration.sessionDate,
-      sessionTime: selectedCourse?.sessionTime ?? registration.sessionTime,
+      sessionDate: registration.session_id
+        ? registration.sessionDate
+        : selectedCourse?.sessionDate ?? registration.sessionDate,
+      sessionDateLabel: registration.session_id
+        ? registration.sessionDateLabel
+        : registration.sessionDateLabel,
+      sessionTime: registration.session_id
+        ? registration.sessionTime
+        : selectedCourse?.sessionTime ?? registration.sessionTime,
     });
 
     if (!result.success) {
@@ -96,6 +107,41 @@ export function RegistrationEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
+          <section className="rounded-2xl border border-border bg-surface px-5 py-4">
+            <h3 className="text-sm font-medium text-foreground">報名時段</h3>
+
+            {multiSessionSlots.length > 0 ? (
+              <ul className="mt-3 space-y-2 text-sm text-foreground">
+                {multiSessionSlots.map((slot) => (
+                  <li key={`${slot.date}-${slot.timeLabel}`}>
+                    • {slot.detailLine}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted">日期</dt>
+                  <dd className="font-medium text-foreground">
+                    {registration.sessionDateLabel}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted">時間</dt>
+                  <dd className="font-medium text-foreground">
+                    {registration.sessionTime}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted">班別</dt>
+                  <dd className="font-medium text-foreground">
+                    {registration.className}
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </section>
+
           <div>
             <label className="text-sm font-medium text-foreground">課程</label>
             <select

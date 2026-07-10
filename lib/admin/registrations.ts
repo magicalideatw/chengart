@@ -1,8 +1,13 @@
 import { getAuthenticatedUser } from "@/lib/auth/session";
+import {
+  ADMIN_REGISTRATIONS_SELECT,
+  attachOrderSessionSlots,
+  mapAdminRegistrationRow,
+  type RegistrationJoinRow,
+} from "@/lib/admin/registrations-mappers";
+import type { AdminRegistration } from "@/lib/admin/types";
 import { mapCourseRow } from "@/lib/courses/mappers";
 import { getEnrollmentCountsByCourseIds } from "@/lib/courses/queries";
-import type { AdminRegistration } from "@/lib/admin/types";
-import { DEFAULT_MAX_CAPACITY } from "@/lib/registrations/availability";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function fetchAdminRegistrations(): Promise<{
@@ -21,17 +26,30 @@ export async function fetchAdminRegistrations(): Promise<{
   const user = await getAuthenticatedUser();
   const supabase = await createServerClient();
 
-  const registrationsResult = await supabase
+  const primaryResult = await supabase
     .from("registrations")
-    .select("*")
+    .select(ADMIN_REGISTRATIONS_SELECT)
     .order("created_at", { ascending: false });
 
-  if (registrationsResult.error) {
-    return {
-      registrations: [],
-      canMutate: Boolean(user),
-      error: registrationsResult.error.message,
-    };
+  let rows: RegistrationJoinRow[];
+
+  if (primaryResult.error) {
+    const fallbackResult = await supabase
+      .from("registrations")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (fallbackResult.error) {
+      return {
+        registrations: [],
+        canMutate: Boolean(user),
+        error: fallbackResult.error.message,
+      };
+    }
+
+    rows = (fallbackResult.data ?? []) as RegistrationJoinRow[];
+  } else {
+    rows = (primaryResult.data ?? []) as RegistrationJoinRow[];
   }
 
   const coursesResult = await supabase.from("courses").select("*");
@@ -46,38 +64,24 @@ export async function fetchAdminRegistrations(): Promise<{
     }
   }
 
-  const rows = registrationsResult.data ?? [];
   const courseIds = rows
     .map((row) => row.course_id ?? row.course_slug)
     .filter((value): value is string => Boolean(value));
 
   const slotCounts = await getEnrollmentCountsByCourseIds(courseIds);
 
-  const registrations: AdminRegistration[] = rows.map((row) => {
-    const lookupKey = row.course_id ?? row.course_slug ?? "";
-    const course = courseMap.get(lookupKey);
-    const maxCapacity = course?.capacity ?? DEFAULT_MAX_CAPACITY;
+  const registrations = attachOrderSessionSlots(
+    rows.map((row) => {
+      const lookupKey = row.course_id ?? row.course_slug ?? "";
+      const course = courseMap.get(lookupKey);
 
-    return {
-      id: row.id,
-      course_id: row.course_id ?? row.course_slug ?? "",
-      status: (row.status as AdminRegistration["status"] | undefined) ?? "paid",
-      name: row.name ?? "",
-      phone: row.phone ?? "",
-      email: row.email ?? "",
-      student_name: row.student_name ?? "",
-      student_age: row.student_age ?? "",
-      is_first_time: row.is_first_time ?? false,
-      note: row.note,
-      created_at: row.created_at ?? new Date().toISOString(),
-      courseTitle: course?.title ?? "未知課程",
-      courseCategory: course?.category ?? "",
-      sessionDate: course?.sessionDate ?? row.session_date ?? "",
-      sessionTime: course?.sessionTime ?? row.class_time ?? "—",
-      slotEnrollment: slotCounts[lookupKey] ?? 0,
-      maxCapacity,
-    };
-  });
+      return mapAdminRegistrationRow(
+        row,
+        course,
+        slotCounts[lookupKey] ?? 0,
+      );
+    }),
+  );
 
   return {
     registrations,
