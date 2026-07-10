@@ -58,7 +58,13 @@ async function insertPaidRegistration(
     if (error?.message.includes("CLASS_FULL")) {
       return { id: null, error: "此課程已額滿" };
     }
-    console.error("Registration insert failed:", error?.message);
+    console.error("Registration insert failed", {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      payload: newPayload,
+    });
     return { id: null, error: "建立報名紀錄失敗" };
   }
 
@@ -87,7 +93,12 @@ async function insertPaidRegistration(
     if (legacyResult.error.message.includes("CLASS_FULL")) {
       return { id: null, error: "此課程已額滿" };
     }
-    console.error("Legacy registration insert failed:", legacyResult.error.message);
+    console.error("Legacy registration insert failed", {
+      code: legacyResult.error.code,
+      message: legacyResult.error.message,
+      details: legacyResult.error.details,
+      hint: legacyResult.error.hint,
+    });
     return { id: null, error: "建立報名紀錄失敗" };
   }
 
