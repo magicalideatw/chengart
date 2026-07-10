@@ -244,6 +244,13 @@ export type Database = {
             referencedRelation: "orders";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "registrations_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "sessions";
+            referencedColumns: ["id"];
+          },
         ];
       };
       orders: {

@@ -12,7 +12,7 @@ import {
   usesMultiSessionRegistration,
   type RegistrationOrderFormData,
 } from "@/lib/registration/types";
-import { createPaymentClient } from "@/lib/supabase";
+import { createPaymentClient, isServiceClientConfigured } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type FulfillOrderResult =
@@ -28,7 +28,7 @@ async function insertPaidRegistration(
   sessionTime: string,
   sessionId?: string | null,
 ): Promise<{ id: string | null; error?: string }> {
-  const supabase = await createPaymentClient();
+  const supabase = createPaymentClient();
 
   const newPayload: Database["public"]["Tables"]["registrations"]["Insert"] = {
     course_id: courseId,
@@ -41,7 +41,7 @@ async function insertPaidRegistration(
     student_age: formData.studentAge,
     is_first_time: formData.isFirstTime === "yes",
     note: formData.note || null,
-    session_id: sessionId ?? null,
+    ...(sessionId ? { session_id: sessionId } : {}),
   };
 
   const { data, error } = await supabase
@@ -52,6 +52,24 @@ async function insertPaidRegistration(
 
   if (!error && data) {
     return { id: data.id };
+  }
+
+  if (sessionId) {
+    if (error?.message.includes("CLASS_FULL")) {
+      return { id: null, error: "此上課日期已額滿" };
+    }
+    if (error?.message.includes("SESSION_NOT_FOUND")) {
+      return { id: null, error: "上課日期不存在" };
+    }
+    console.error("Registration insert failed", {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      payload: newPayload,
+      usingServiceRole: isServiceClientConfigured(),
+    });
+    return { id: null, error: "建立報名紀錄失敗" };
   }
 
   if (error?.code !== "42703" && !error?.message.includes("course_id")) {
@@ -106,7 +124,7 @@ async function insertPaidRegistration(
 }
 
 async function decrementSessionCapacity(sessionId: string): Promise<boolean> {
-  const supabase = await createPaymentClient();
+  const supabase = createPaymentClient();
 
   const { data: session, error: fetchError } = await supabase
     .from("sessions")

@@ -46,7 +46,7 @@ export async function getOrderByMerchantTradeNo(
 ): Promise<OrderRecord | null> {
   if (!isSupabaseConfigured() || !merchantTradeNo) return null;
 
-  const supabase = await createPaymentClient();
+  const supabase = createPaymentClient();
   const { data, error } = await supabase
     .from("orders")
     .select("*")
@@ -89,7 +89,7 @@ export async function createPendingOrder(input: {
     return { order: null, error: "Supabase 尚未設定" };
   }
 
-  const supabase = await createPaymentClient();
+  const supabase = createPaymentClient();
   const { data, error } = await supabase
     .from("orders")
     .insert({
@@ -154,7 +154,7 @@ export async function updateOrderStatus(
 ): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
 
-  const supabase = await createPaymentClient();
+  const supabase = createPaymentClient();
   const { error } = await supabase
     .from("orders")
     .update({

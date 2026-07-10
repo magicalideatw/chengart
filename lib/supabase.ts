@@ -76,10 +76,14 @@ export function createServiceClient() {
   });
 }
 
-/** Payment callbacks — prefer service role; fall back to anon server client */
-export async function createPaymentClient() {
+/** Payment client — service role when available, otherwise plain anon (no cookies) */
+export function createPaymentClient() {
   if (isServiceClientConfigured()) {
     return createServiceClient();
   }
-  return createServerClient();
+
+  const { url, anonKey } = getSupabaseEnv();
+  return createSupabaseClient<Database>(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }

@@ -6,7 +6,7 @@ import { mapSessionRow } from "@/lib/sessions/mappers";
 import { getSessionsByClassId } from "@/lib/sessions/queries";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { ClassSession } from "@/lib/sessions/types";
-import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import { createPaymentClient, isSupabaseConfigured } from "@/lib/supabase";
 import { isSessionSelectable } from "@/lib/registration/session-utils";
 
 export { isSessionSelectable };
@@ -107,7 +107,7 @@ export async function validateSessionSelection(
     return { success: false, error: "找不到此課程" };
   }
 
-  const supabase = await createServerClient();
+  const supabase = createPaymentClient();
   const { data, error } = await supabase
     .from("sessions")
     .select("*")

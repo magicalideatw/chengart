@@ -10,3 +10,5 @@ CREATE INDEX IF NOT EXISTS registrations_session_id_idx
 
 CREATE INDEX IF NOT EXISTS registrations_order_id_idx
   ON public.registrations (order_id);
+
+NOTIFY pgrst, 'reload schema';
