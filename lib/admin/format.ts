@@ -56,15 +56,81 @@ export function formatAdminSessionWeekday(date?: string | null): string {
   return weekdays[new Date(year, month - 1, day).getDay()];
 }
 
+export function trimAdminTime(value?: string | null): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  return trimmed.length >= 5 ? trimmed.slice(0, 5) : trimmed;
+}
+
+export function parseAdminTimeRange(value?: string | null): {
+  start: string;
+  end: string;
+} {
+  const trimmed = value?.trim() ?? "";
+  const match = trimmed.match(/^(\d{1,2}:\d{2})\s*[~\-–]\s*(\d{1,2}:\d{2})/);
+
+  if (match) {
+    return {
+      start: trimAdminTime(match[1]),
+      end: trimAdminTime(match[2]),
+    };
+  }
+
+  return {
+    start: trimAdminTime(trimmed),
+    end: "",
+  };
+}
+
+export function formatAdminSessionTimeHyphen(
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  const start = trimAdminTime(startTime);
+  const end = trimAdminTime(endTime);
+
+  if (start && end) return `${start}-${end}`;
+  return start || end || "—";
+}
+
 export function formatAdminSessionTimeRange(
   startTime?: string | null,
   endTime?: string | null,
 ): string {
-  const start = startTime?.trim();
-  const end = endTime?.trim();
+  const start = trimAdminTime(startTime);
+  const end = trimAdminTime(endTime);
 
   if (start && end) return `${start}~${end}`;
   return start || end || "—";
+}
+
+export function formatAdminSessionScheduleLine(
+  date?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  if (!date || date === "—") return "—";
+
+  const weekday = formatAdminSessionWeekday(date);
+  const dateLabel = formatAdminSessionDate(date);
+  const timeLabel = formatAdminSessionTimeHyphen(startTime, endTime);
+
+  return weekday
+    ? `${dateLabel}（${weekday}）${timeLabel}`
+    : `${dateLabel} ${timeLabel}`;
+}
+
+export function formatAdminSessionCompactLine(
+  date?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  const datePart = formatSessionDate(date);
+  const timePart = formatAdminSessionTimeHyphen(startTime, endTime);
+
+  if (!date || date === "—") return "—";
+  if (timePart && timePart !== "—") return `${datePart} ${timePart}`;
+  return datePart;
 }
 
 export function formatAdminSessionDetailLine(
@@ -75,7 +141,7 @@ export function formatAdminSessionDetailLine(
 
   const weekday = formatAdminSessionWeekday(date);
   const dateLabel = formatAdminSessionDate(date);
-  const timeLabel = time?.trim() || "—";
+  const timeLabel = time?.trim().replace(/~/g, "-") || "—";
 
   return weekday
     ? `${dateLabel}（${weekday}）${timeLabel}`

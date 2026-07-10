@@ -107,10 +107,15 @@ export function RegistrationTable({
             item.email,
             item.phone,
             item.courseTitle,
+            item.sessionScheduleText,
             item.sessionDateLabel,
             item.sessionDate,
             item.sessionTime,
             item.className,
+            ...item.sessions.map(
+              (session) =>
+                `${session.scheduleLine} ${session.compactLine} ${session.className}`,
+            ),
           ].some((value) => value.toLowerCase().includes(keyword)),
         )
       : registrations;
@@ -141,13 +146,16 @@ export function RegistrationTable({
       return;
     }
 
+    const sessionCount = item.sessions.length;
     const confirmed = window.confirm(
-      `確定要刪除「${item.name}」的報名資料嗎？此操作無法復原。`,
+      sessionCount > 1
+        ? `確定要刪除「${item.name}」的 ${sessionCount} 堂報名資料嗎？此操作無法復原。`
+        : `確定要刪除「${item.name}」的報名資料嗎？此操作無法復原。`,
     );
     if (!confirmed) return;
 
     startTransition(async () => {
-      const result = await deleteRegistration(item.id);
+      const result = await deleteRegistration(item.registrationIds);
       if (result.success) {
         showToast("已刪除報名");
         router.refresh();
@@ -168,7 +176,7 @@ export function RegistrationTable({
     }
 
     const result = await updateRegistration({
-      id: updated.id,
+      ids: updated.registrationIds,
       courseId: updated.course_id,
       name: updated.name,
       phone: updated.phone,
@@ -210,8 +218,11 @@ export function RegistrationTable({
                     { label: "Email", sortable: false },
                     { label: "課程", sortable: false },
                     { label: "付款狀態", sortable: false },
-                    { label: "上課日期", sortable: true, key: "sessionDate" as const },
-                    { label: "上課時間", sortable: false },
+                    {
+                      label: "上課日期／時段",
+                      sortable: true,
+                      key: "sessionDate" as const,
+                    },
                     { label: "班別", sortable: true, key: "className" as const },
                     { label: "人數", sortable: false },
                     { label: "建立時間", sortable: true, key: "created_at" as const },
@@ -239,7 +250,7 @@ export function RegistrationTable({
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={10}
                       className="px-6 py-16 text-center text-muted"
                     >
                       {query ? "找不到符合的報名資料" : "目前尚無報名資料"}
@@ -270,11 +281,8 @@ export function RegistrationTable({
                           {STATUS_LABELS[item.status]}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {item.sessionDateLabel}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {item.sessionTime}
+                      <td className="min-w-[220px] whitespace-pre-line px-4 py-4 text-foreground">
+                        {item.sessionScheduleText || "—"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-foreground">
                         {item.className}

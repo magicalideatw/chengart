@@ -22,13 +22,21 @@ async function getMutationClient() {
   return createServerClient();
 }
 
-export async function deleteRegistration(id: string): Promise<AdminActionResult> {
+export async function deleteRegistration(ids: string[]): Promise<AdminActionResult> {
   await requireAuthenticatedUser();
+
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return { success: false, error: "找不到要刪除的報名資料" };
+  }
 
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
-  const { error } = await supabase.from("registrations").delete().eq("id", id);
+  const { error } = await supabase
+    .from("registrations")
+    .delete()
+    .in("id", uniqueIds);
 
   if (error) {
     console.error("Delete registration failed:", error.message);
@@ -42,6 +50,7 @@ export async function deleteRegistration(id: string): Promise<AdminActionResult>
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/registrations");
   return { success: true };
 }
 
@@ -61,6 +70,11 @@ export async function updateRegistration(
   }
 
   const data = parsed.data;
+  const uniqueIds = [...new Set(data.ids.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return { success: false, error: "找不到要更新的報名資料" };
+  }
+
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
@@ -69,14 +83,15 @@ export async function updateRegistration(
     return { success: false, error: "找不到所選課程" };
   }
 
-  const { data: existing } = await supabase
+  const { data: existingRows } = await supabase
     .from("registrations")
-    .select("course_id, course_slug")
-    .eq("id", data.id)
-    .maybeSingle();
+    .select("id, course_id, course_slug")
+    .in("id", uniqueIds);
 
-  const existingKey = existing?.course_id ?? existing?.course_slug;
-  const isChangingCourse = existingKey !== data.courseId;
+  const isChangingCourse = (existingRows ?? []).some((row) => {
+    const existingKey = row.course_id ?? row.course_slug;
+    return existingKey !== data.courseId;
+  });
 
   if (isChangingCourse && course.isFull) {
     return { success: false, error: "此課程已額滿，無法移動至此課程" };
@@ -96,10 +111,11 @@ export async function updateRegistration(
   const { error: newSchemaError } = await supabase
     .from("registrations")
     .update(newPayload)
-    .eq("id", data.id);
+    .in("id", uniqueIds);
 
   if (!newSchemaError) {
     revalidatePath("/admin");
+    revalidatePath("/admin/registrations");
     return { success: true };
   }
 
@@ -121,7 +137,7 @@ export async function updateRegistration(
   const { error: legacyError } = await supabase
     .from("registrations")
     .update(legacyPayload)
-    .eq("id", data.id);
+    .in("id", uniqueIds);
 
   if (legacyError) {
     if (legacyError.message.includes("CLASS_FULL")) {
@@ -139,5 +155,6 @@ export async function updateRegistration(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/registrations");
   return { success: true };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import {
   SESSION_STATUSES,
@@ -42,7 +42,24 @@ function buildEmptyForm(
   };
 }
 
-export function SessionFormModal({
+function buildInitialForm({
+  session,
+  initialValues,
+  defaultCapacity,
+  defaultStartTime,
+  defaultEndTime,
+}: Pick<
+  SessionFormModalProps,
+  "session" | "initialValues" | "defaultCapacity" | "defaultStartTime" | "defaultEndTime"
+>): SessionFormInput {
+  if (session) return sessionToFormInput(session);
+  return (
+    initialValues ??
+    buildEmptyForm(defaultCapacity, defaultStartTime, defaultEndTime)
+  );
+}
+
+function SessionFormModalBody({
   session,
   initialValues,
   defaultCapacity = 5,
@@ -53,20 +70,16 @@ export function SessionFormModal({
   onSubmit,
   isPending,
 }: SessionFormModalProps) {
-  const [form, setForm] = useState<SessionFormInput>(
-    session
-      ? sessionToFormInput(session)
-      : initialValues ?? buildEmptyForm(defaultCapacity, defaultStartTime, defaultEndTime),
+  const [form, setForm] = useState<SessionFormInput>(() =>
+    buildInitialForm({
+      session,
+      initialValues,
+      defaultCapacity,
+      defaultStartTime,
+      defaultEndTime,
+    }),
   );
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setForm(
-      session
-        ? sessionToFormInput(session)
-        : initialValues ?? buildEmptyForm(defaultCapacity, defaultStartTime, defaultEndTime),
-    );
-  }, [session, initialValues, defaultCapacity, defaultStartTime, defaultEndTime]);
 
   const updateField = <K extends keyof SessionFormInput>(
     key: K,
@@ -237,4 +250,16 @@ export function SessionFormModal({
       </div>
     </div>
   );
+}
+
+export function SessionFormModal(props: SessionFormModalProps) {
+  const resetKey = [
+    props.session?.id ?? "new",
+    props.initialValues?.date ?? "",
+    props.defaultCapacity ?? 5,
+    props.defaultStartTime ?? "",
+    props.defaultEndTime ?? "",
+  ].join(":");
+
+  return <SessionFormModalBody key={resetKey} {...props} />;
 }

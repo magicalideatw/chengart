@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const adminRegistrationSchema = z.object({
-  id: z.string().uuid(),
+  ids: z.array(z.string().uuid()).min(1),
   courseId: z.string().min(1, "請選擇課程"),
   name: z.string().min(1, "請填寫姓名"),
   phone: z

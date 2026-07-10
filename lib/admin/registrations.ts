@@ -1,8 +1,7 @@
 import { getAuthenticatedUser } from "@/lib/auth/session";
 import {
   ADMIN_REGISTRATIONS_SELECT,
-  attachOrderSessionSlots,
-  mapAdminRegistrationRow,
+  groupAdminRegistrations,
   type RegistrationJoinRow,
 } from "@/lib/admin/registrations-mappers";
 import type { AdminRegistration } from "@/lib/admin/types";
@@ -70,18 +69,7 @@ export async function fetchAdminRegistrations(): Promise<{
 
   const slotCounts = await getEnrollmentCountsByCourseIds(courseIds);
 
-  const registrations = attachOrderSessionSlots(
-    rows.map((row) => {
-      const lookupKey = row.course_id ?? row.course_slug ?? "";
-      const course = courseMap.get(lookupKey);
-
-      return mapAdminRegistrationRow(
-        row,
-        course,
-        slotCounts[lookupKey] ?? 0,
-      );
-    }),
-  );
+  const registrations = groupAdminRegistrations(rows, courseMap, slotCounts);
 
   return {
     registrations,
