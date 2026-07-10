@@ -6,30 +6,37 @@ export const siteConfig = {
   description:
     "晟心誠藝劇團提供魔術、戲劇、舞蹈藝術教育與專業演出服務，服務兒童、青少年、成人、學校與企業。",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://chengart.tw",
-  email: "contact@chengart.tw",
-  phone: "02-1234-5678",
-  address: "台北市信義區表演藝術大道 1 號",
-  line: "https://line.me/",
-  facebook: "https://facebook.com/",
-  instagram: "https://instagram.com/",
+  email: "chengart.theatre@gmail.com",
+  facebook:
+    "https://www.facebook.com/p/%E6%99%9F%E5%BF%83%E8%AA%A0%E8%97%9D%E5%8A%87%E5%9C%98-61583538620533/",
+  instagram: "https://www.instagram.com/chengart.theatre/",
+  footerSlogan:
+    "以魔術、戲劇、舞蹈與藝術教育，打造兼具感動、創意與教育意義的藝術體驗。",
+  footerCopyright:
+    "© 2026 晟心誠藝劇團 Cheng Art Theatre. All Rights Reserved.",
 };
 
 export const navLinks = [
   { label: "首頁", href: "/" },
-  { label: "最新活動", href: "#activities" },
+  { label: "近期招生與演出", href: "#activities" },
   { label: "課程", href: "#courses" },
-  { label: "演出", href: "#performances" },
+  { label: "演出服務", href: "#performances" },
   { label: "關於", href: "#about" },
   { label: "聯絡", href: "#contact" },
 ];
 
 export const footerLinks = [
-  { label: "最新活動", href: "#activities" },
+  { label: "近期招生與演出", href: "#activities" },
   { label: "課程", href: "#courses" },
-  { label: "演出", href: "#performances" },
+  { label: "演出服務", href: "#performances" },
   { label: "關於", href: "#about" },
   { label: "聯絡", href: "#contact" },
 ];
+
+export const heroImage = {
+  src: "/images/hero-performance.jpg",
+  alt: "晟心誠藝劇團劇場演出",
+};
 
 export const heroVideo = {
   src: "https://videos.pexels.com/video-files/3129677/3129677-uhd_2560_1440_25fps.mp4",

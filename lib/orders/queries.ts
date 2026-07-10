@@ -1,5 +1,5 @@
 import type { OrderListItem, OrderRecord } from "@/lib/orders/types";
-import type { RegistrationFormValues } from "@/lib/validation/registration-schema";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { createPaymentClient, createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 
 function mapOrderRow(row: Record<string, unknown>): OrderRecord {
@@ -16,7 +16,7 @@ function mapOrderRow(row: Record<string, unknown>): OrderRecord {
     name: String(row.name),
     email: String(row.email),
     phone: String(row.phone),
-    form_data: row.form_data as RegistrationFormValues,
+    form_data: row.form_data as RegistrationOrderFormData,
     paid_at: row.paid_at ? String(row.paid_at) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
@@ -83,7 +83,7 @@ export async function createPendingOrder(input: {
   courseId: string;
   courseTitle: string;
   amount: number;
-  formData: RegistrationFormValues;
+  formData: RegistrationOrderFormData;
 }): Promise<{ order: OrderRecord | null; error?: string }> {
   if (!isSupabaseConfigured()) {
     return { order: null, error: "Supabase 尚未設定" };

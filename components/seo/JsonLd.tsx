@@ -9,13 +9,7 @@ export function JsonLd() {
     description: siteConfig.description,
     url: siteConfig.url,
     email: siteConfig.email,
-    telephone: siteConfig.phone,
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "台北市",
-      addressCountry: "TW",
-    },
-    sameAs: [siteConfig.facebook, siteConfig.instagram, siteConfig.line],
+    sameAs: [siteConfig.facebook, siteConfig.instagram],
   };
 
   return (

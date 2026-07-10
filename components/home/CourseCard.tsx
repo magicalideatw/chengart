@@ -56,7 +56,7 @@ export function CourseCard({ course, index }: CourseCardProps) {
           href={course.href}
           className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-foreground transition group-hover:text-gold"
         >
-          了解更多
+          報名課程
           <span className="transition-transform group-hover:translate-x-0.5">
             →
           </span>

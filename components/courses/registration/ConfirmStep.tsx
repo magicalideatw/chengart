@@ -4,10 +4,11 @@ import { motion } from "framer-motion";
 import type { RegistrationFormValues } from "@/lib/validation/registration-schema";
 
 type ConfirmStepProps = {
-  dateLabel: string;
+  dateLabel?: string;
   className: string;
-  classTime: string;
+  classTime?: string;
   feeLabel: string;
+  sessionSummaries?: string[];
   formData: RegistrationFormValues;
 };
 
@@ -16,12 +17,17 @@ export function ConfirmStep({
   className,
   classTime,
   feeLabel,
+  sessionSummaries,
   formData,
 }: ConfirmStepProps) {
   const rows = [
-    { label: "日期", value: dateLabel },
-    { label: "班級", value: className },
-    { label: "時間", value: classTime },
+    { label: "課程", value: className },
+    ...(sessionSummaries && sessionSummaries.length > 0
+      ? [{ label: "上課日期", value: sessionSummaries.join("\n") }]
+      : dateLabel
+        ? [{ label: "日期", value: dateLabel }]
+        : []),
+    ...(classTime ? [{ label: "時間", value: classTime }] : []),
     { label: "費用", value: feeLabel },
     { label: "姓名", value: formData.name },
     { label: "學生姓名", value: formData.studentName },
@@ -59,7 +65,7 @@ export function ConfirmStep({
             className="flex items-baseline justify-between gap-4 py-4"
           >
             <dt className="shrink-0 text-sm text-muted">{row.label}</dt>
-            <dd className="text-right text-sm font-medium text-foreground">
+            <dd className="whitespace-pre-line text-right text-sm font-medium text-foreground">
               {row.value}
             </dd>
           </div>

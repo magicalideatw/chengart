@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import type { Event } from "@/src/data/events";
-import { canRegister, isAdultEvent } from "@/src/data/events";
+import type { EventPageData } from "@/lib/events/types";
+import { canRegister, getClosedRegistrationLabel } from "@/lib/events/status";
+import { isAdultEvent } from "@/src/data/events";
 import { FadeIn } from "@/components/ui/FadeIn";
 
 type EventRegistrationFormProps = {
-  event: Event;
+  event: EventPageData;
 };
 
 type FormData = {
@@ -38,8 +40,35 @@ type FieldConfig = {
 export function EventRegistrationForm({ event }: EventRegistrationFormProps) {
   const [form, setForm] = useState<FormData>(initialForm);
   const [success, setSuccess] = useState(false);
-  const open = canRegister(event);
+  const open = canRegister(event.status);
   const isAdult = isAdultEvent(event);
+  const buttonText = event.registrationButtonText || "立即報名";
+
+  if (event.registrationUrl) {
+    if (!open) return null;
+
+    return (
+      <section id="register" className="py-12 sm:py-16">
+        <FadeIn>
+          <h2 className="font-display text-xl font-semibold text-foreground sm:text-2xl">
+            立即報名
+          </h2>
+          <p className="mt-2 text-sm text-muted">{event.title}</p>
+        </FadeIn>
+
+        <FadeIn className="mt-8" delay={0.08}>
+          <Link
+            href={event.registrationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-full bg-foreground px-8 py-3.5 text-sm font-medium text-white transition hover:bg-foreground/90"
+          >
+            {buttonText}
+          </Link>
+        </FadeIn>
+      </section>
+    );
+  }
 
   const baseFields: FieldConfig[] = [
     { name: "name", label: "姓名", type: "text", required: true },
@@ -92,9 +121,7 @@ export function EventRegistrationForm({ event }: EventRegistrationFormProps) {
                 <h3 className="mt-4 font-display text-2xl font-semibold text-foreground">
                   報名成功！
                 </h3>
-                <p className="mt-2 text-sm text-muted">
-                  我們會盡快與您聯絡。
-                </p>
+                <p className="mt-2 text-sm text-muted">我們會盡快與您聯絡。</p>
               </motion.div>
             ) : (
               <motion.form
@@ -158,7 +185,7 @@ export function EventRegistrationForm({ event }: EventRegistrationFormProps) {
                     disabled
                     className="w-full cursor-not-allowed rounded-full bg-surface py-3.5 text-sm font-medium text-mist"
                   >
-                    已額滿
+                    {getClosedRegistrationLabel(event.status)}
                   </button>
                 )}
               </motion.form>

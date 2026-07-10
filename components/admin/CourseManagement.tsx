@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Layers, Pencil, Trash2 } from "lucide-react";
 import {
   createCourse,
   deleteCourse,
@@ -17,6 +18,7 @@ import { Toast } from "@/components/ui/Toast";
 type CourseManagementProps = {
   courses: Course[];
   enrollmentCounts: Record<string, number>;
+  classCounts?: Record<string, number>;
   canMutate: boolean;
 };
 
@@ -25,6 +27,7 @@ type ToastState = { title: string; message?: string };
 export function CourseManagement({
   courses,
   enrollmentCounts,
+  classCounts = {},
   canMutate,
 }: CourseManagementProps) {
   const [showCreate, setShowCreate] = useState(false);
@@ -166,6 +169,16 @@ export function CourseManagement({
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 pr-6">
                           <div className="flex items-center gap-2">
+                            <Link
+                              href={`/admin/courses/${course.id}/classes`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold"
+                            >
+                              <Layers className="h-3.5 w-3.5" />
+                              班別管理
+                              {classCounts[course.id]
+                                ? ` (${classCounts[course.id]})`
+                                : ""}
+                            </Link>
                             <button
                               type="button"
                               onClick={() => setEditing(course)}

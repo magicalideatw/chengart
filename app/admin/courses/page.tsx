@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CourseManagement } from "@/components/admin/CourseManagement";
+import { getClassCountsByCourseIds } from "@/lib/classes/queries";
 import {
   getAllCourses,
   getEnrollmentCountsByCourseIds,
@@ -16,9 +17,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminCoursesPage() {
   const courses = await getAllCourses();
-  const enrollmentCounts = await getEnrollmentCountsByCourseIds(
-    courses.map((course) => course.id).filter(Boolean),
-  );
+  const courseIds = courses.map((course) => course.id).filter(Boolean);
+  const enrollmentCounts = await getEnrollmentCountsByCourseIds(courseIds);
+  const classCounts = await getClassCountsByCourseIds(courseIds);
   const isLegacySchema = await usesLegacyCourseSchema();
 
   return (
@@ -36,6 +37,7 @@ export default async function AdminCoursesPage() {
       <CourseManagement
         courses={courses}
         enrollmentCounts={enrollmentCounts}
+        classCounts={classCounts}
         canMutate={isSupabaseConfigured() && !isLegacySchema}
       />
     </div>

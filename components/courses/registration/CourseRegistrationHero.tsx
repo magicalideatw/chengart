@@ -4,17 +4,24 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
+import type { CourseRegistrationPlan } from "@/lib/registration/queries";
 
 type CourseRegistrationHeroProps = {
   course: CourseWithEnrollment;
+  plan: CourseRegistrationPlan;
   onRegister: () => void;
+  canRegister: boolean;
+  selectedCount?: number;
 };
 
 export function CourseRegistrationHero({
   course,
+  plan,
   onRegister,
+  canRegister,
+  selectedCount = 0,
 }: CourseRegistrationHeroProps) {
-  const canRegister = course.isOpen && !course.isFull;
+  const usesSessions = plan.usesSessions;
 
   return (
     <section className="relative">
@@ -46,27 +53,56 @@ export function CourseRegistrationHero({
             {course.description}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-white/80">
-            <span className="rounded-full border border-white/20 px-3 py-1">
-              {formatSessionDate(course.sessionDate)} · {course.sessionTime}
-            </span>
-            <span className="rounded-full border border-white/20 px-3 py-1">
-              名額 {course.enrollmentCount}/{course.capacity}
-            </span>
-            <span className="rounded-full border border-white/20 px-3 py-1">
-              {formatFee(course.fee)}
-            </span>
+            {usesSessions ? (
+              <>
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  依班別選擇上課日期
+                </span>
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  單堂 {formatFee(plan.defaultUnitPrice)} 起
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  {formatSessionDate(course.sessionDate)} · {course.sessionTime}
+                </span>
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  名額 {course.enrollmentCount}/{course.capacity}
+                </span>
+                <span className="rounded-full border border-white/20 px-3 py-1">
+                  {formatFee(course.fee)}
+                </span>
+              </>
+            )}
           </div>
           {canRegister ? (
-            <button
-              type="button"
-              onClick={onRegister}
-              className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
-            >
-              立即報名
-            </button>
+            usesSessions ? (
+              selectedCount > 0 ? (
+                <p className="mt-8 text-sm text-white/80">
+                  已選 {selectedCount} 堂，請在下方確認後繼續報名
+                </p>
+              ) : (
+                <p className="mt-8 text-sm text-white/80">
+                  請先選擇要上課的日期
+                </p>
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={onRegister}
+                className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
+              >
+                立即報名
+              </button>
+            )
           ) : (
             <p className="mt-8 inline-flex rounded-full border border-white/20 bg-black/30 px-6 py-3 text-sm text-white/80">
-              {!course.isOpen ? "目前未開放報名" : "已額滿"}
+              {!course.isOpen
+                ? "目前未開放報名"
+                : usesSessions
+                  ? "目前沒有可報名的上課日期"
+                  : "已額滿"}
             </p>
           )}
         </motion.div>

@@ -12,6 +12,7 @@ const links = [
   { href: "/admin/registrations", label: "報名" },
   { href: "/admin/orders", label: "訂單" },
   { href: "/admin/announcements", label: "公告" },
+  { href: "/admin/events", label: "活動" },
 ];
 
 export function AdminNav() {

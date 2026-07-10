@@ -7,11 +7,12 @@ import {
 } from "@/lib/email/templates/registration-notification";
 import type { RegistrationEmailData } from "@/lib/email/types";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
-import type { RegistrationFormValues } from "@/lib/validation/registration-schema";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
+import { usesMultiSessionRegistration } from "@/lib/registration/types";
 
 type SendRegistrationNotificationsInput = {
   course: CourseWithEnrollment;
-  formData: RegistrationFormValues;
+  formData: RegistrationOrderFormData;
   enrollmentCount: number;
 };
 
@@ -19,14 +20,19 @@ function buildEmailData(
   input: SendRegistrationNotificationsInput,
 ): RegistrationEmailData {
   const { course, formData, enrollmentCount } = input;
+  const multiSession = usesMultiSessionRegistration(formData);
 
   return {
     courseTitle: course.title,
     name: formData.name,
     email: formData.email,
     phone: formData.phone,
-    sessionDate: formatSessionDate(course.sessionDate),
-    sessionTime: course.sessionTime || "—",
+    sessionDate: multiSession
+      ? formData.sessionSummaries?.join("、") ?? "—"
+      : formatSessionDate(course.sessionDate),
+    sessionTime: multiSession
+      ? `共 ${formData.sessionIds?.length ?? 0} 堂`
+      : course.sessionTime || "—",
     enrollmentLabel: `${enrollmentCount}/${course.capacity}`,
     note: formData.note?.trim() || "—",
     registeredAt: formatDateTime(new Date().toISOString()),

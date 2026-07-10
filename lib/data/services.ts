@@ -1,58 +1,46 @@
-export type PerformanceService = {
+export type PerformanceServiceItem = {
   id: string;
   title: string;
   description: string;
-  image: string;
-  href: string;
+  icon: "school" | "building" | "theater" | "festival";
 };
 
-export const performanceServices: PerformanceService[] = [
+export const performanceServicesContent = {
+  label: "Performance Services",
+  title: "演出服務",
+  intro: [
+    "我們提供校園巡演、企業活動、劇場演出、大型活動、親子活動及藝術教育等多元演出服務。",
+    "每場演出皆可依不同年齡層、場地規模及活動需求量身規劃，結合戲劇、魔術與舞蹈，打造兼具娛樂性、互動性與教育意義的表演內容，為每位觀眾留下深刻且難忘的體驗。",
+  ],
+  image: "/images/performance-services.jpg",
+  alt: "晟心誠藝劇團三位演員舞台演出",
+};
+
+export const performanceServices: PerformanceServiceItem[] = [
   {
     id: "1",
     title: "校園巡演",
-    description: "為各級學校量身規劃的巡演節目，結合教育與娛樂。",
-    image:
-      "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800&q=80",
-    href: "#contact",
+    description:
+      "帶著原創戲劇、魔術與互動演出走進校園，讓藝術成為孩子成長的一部分。",
+    icon: "school",
   },
   {
     id: "2",
     title: "企業活動",
-    description: "尾牙、記者會、品牌活動的客製化表演方案。",
-    image:
-      "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800&q=80",
-    href: "#contact",
+    description: "尾牙、春酒、家庭日、品牌活動、企業包場及客製化演出規劃。",
+    icon: "building",
   },
   {
     id: "3",
     title: "劇場演出",
-    description: "專業劇場製作，呈現高品質的戲劇與綜合表演。",
-    image:
-      "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=80",
-    href: "#contact",
+    description:
+      "原創戲劇、親子劇、魔術劇場與售票演出，打造兼具娛樂與藝術性的作品。",
+    icon: "theater",
   },
   {
     id: "4",
-    title: "魔術秀",
-    description: "舞台魔術、近景互動，適合各類場合的魔術演出。",
-    image:
-      "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80",
-    href: "#contact",
-  },
-  {
-    id: "5",
-    title: "親子活動",
-    description: "寓教於樂的親子體驗，創造家庭共同的美好回憶。",
-    image:
-      "https://images.unsplash.com/photo-1503099229945-8938207465c0?w=800&q=80",
-    href: "#contact",
-  },
-  {
-    id: "6",
     title: "大型活動",
-    description: "開幕典禮、節慶活動、千人場次的專業策劃執行。",
-    image:
-      "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80",
-    href: "#contact",
+    description: "文化節慶、政府活動、商業活動及舞台節目整體策劃與執行。",
+    icon: "festival",
   },
 ];

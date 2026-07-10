@@ -62,10 +62,117 @@ export type Database = {
         };
         Relationships: [];
       };
+      classes: {
+        Row: {
+          id: string;
+          course_id: string;
+          name: string;
+          teacher: string;
+          weekday: string;
+          start_time: string;
+          end_time: string;
+          capacity: number;
+          fee: number | null;
+          is_open: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          name: string;
+          teacher?: string;
+          weekday: string;
+          start_time: string;
+          end_time: string;
+          capacity?: number;
+          fee?: number | null;
+          is_open?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          name?: string;
+          teacher?: string;
+          weekday?: string;
+          start_time?: string;
+          end_time?: string;
+          capacity?: number;
+          fee?: number | null;
+          is_open?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "classes_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sessions: {
+        Row: {
+          id: string;
+          class_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          capacity: number;
+          remaining_capacity: number;
+          status: string;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          class_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          capacity?: number;
+          remaining_capacity?: number;
+          status?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          class_id?: string;
+          date?: string;
+          start_time?: string;
+          end_time?: string;
+          capacity?: number;
+          remaining_capacity?: number;
+          status?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sessions_class_id_fkey";
+            columns: ["class_id"];
+            isOneToOne: false;
+            referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       registrations: {
         Row: {
           id: string;
           course_id: string;
+          session_id: string | null;
           order_id: string | null;
           status: "pending" | "paid" | "cancelled";
           name: string;
@@ -85,6 +192,7 @@ export type Database = {
         Insert: {
           id?: string;
           course_id?: string;
+          session_id?: string | null;
           order_id?: string | null;
           status?: "pending" | "paid" | "cancelled";
           course_slug?: string;
@@ -104,6 +212,7 @@ export type Database = {
         Update: {
           id?: string;
           course_id?: string;
+          session_id?: string | null;
           order_id?: string | null;
           status?: "pending" | "paid" | "cancelled";
           course_slug?: string;
@@ -240,6 +349,87 @@ export type Database = {
           sort_order?: number;
           starts_at?: string | null;
           ends_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      event_status_overrides: {
+        Row: {
+          slug: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          slug: string;
+          status: string;
+          updated_at?: string;
+        };
+        Update: {
+          slug?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      events: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          subtitle: string;
+          cover_image: string;
+          event_type: string;
+          status: string;
+          start_date: string;
+          end_date: string | null;
+          intro: string;
+          content: string;
+          show_on_homepage: boolean;
+          is_featured: boolean;
+          sort_order: number;
+          registration_button_text: string;
+          registration_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          subtitle?: string;
+          cover_image?: string;
+          event_type?: string;
+          status?: string;
+          start_date: string;
+          end_date?: string | null;
+          intro?: string;
+          content?: string;
+          show_on_homepage?: boolean;
+          is_featured?: boolean;
+          sort_order?: number;
+          registration_button_text?: string;
+          registration_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          title?: string;
+          subtitle?: string;
+          cover_image?: string;
+          event_type?: string;
+          status?: string;
+          start_date?: string;
+          end_date?: string | null;
+          intro?: string;
+          content?: string;
+          show_on_homepage?: boolean;
+          is_featured?: boolean;
+          sort_order?: number;
+          registration_button_text?: string;
+          registration_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

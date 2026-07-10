@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { siteConfig } from "@/lib/data/site";
+import { getCourseRegistrationPlan } from "@/lib/registration/queries";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -41,11 +42,19 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
     notFound();
   }
 
+  const plan =
+    (await getCourseRegistrationPlan(course.id)) ?? {
+      usesSessions: false,
+      classes: [],
+      defaultUnitPrice: course.fee,
+      hasSelectableSessions: false,
+    };
+
   return (
     <>
       <Navbar variant="light" />
       <main className="bg-background pb-16">
-        <CourseRegistrationFlow course={course} />
+        <CourseRegistrationFlow course={course} plan={plan} />
       </main>
       <Footer />
     </>

@@ -1,13 +1,15 @@
-import { Mail, MapPin } from "lucide-react";
-import { siteConfig } from "@/lib/data/site";
+import { Mail } from "lucide-react";
+import { FacebookIcon, InstagramIcon } from "@/components/icons/SocialIcons";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 
-const socialLinks = [
-  { label: "LINE", href: siteConfig.line },
-  { label: "Facebook", href: siteConfig.facebook },
-  { label: "Instagram", href: siteConfig.instagram },
-];
+const contactEmail = "chengart.theatre@gmail.com";
+const instagramUrl = "https://www.instagram.com/chengart.theatre/";
+const facebookUrl =
+  "https://www.facebook.com/p/%E6%99%9F%E5%BF%83%E8%AA%A0%E8%97%9D%E5%8A%87%E5%9C%98-61583538620533/";
+
+const linkClass =
+  "mt-2 flex items-center gap-3 break-all text-sm text-muted transition hover:text-foreground";
 
 export function ContactSection() {
   return (
@@ -23,46 +25,39 @@ export function ContactSection() {
         </FadeIn>
 
         <FadeIn className="mt-10 sm:mt-14" delay={0.08}>
-          <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-            <div className="space-y-6">
-              <div className="flex flex-wrap gap-3">
-                {socialLinks.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground transition hover:border-gold hover:text-gold"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-
-              <a
-                href={`mailto:${siteConfig.email}`}
-                className="flex items-center gap-3 text-sm text-muted transition hover:text-foreground"
-              >
+          <div className="mx-auto max-w-xl space-y-6">
+            <div>
+              <p className="text-sm font-medium text-foreground">Email</p>
+              <a href={`mailto:${contactEmail}`} className={linkClass}>
                 <Mail className="h-4 w-4 shrink-0 text-gold" aria-hidden />
-                {siteConfig.email}
+                {contactEmail}
               </a>
-
-              <p className="flex items-start gap-3 text-sm text-muted">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" aria-hidden />
-                {siteConfig.address}
-              </p>
-
-              <p className="text-sm text-muted">{siteConfig.phone}</p>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-border bg-white">
-              <iframe
-                title="晟心誠藝劇團 Google Map"
-                src="https://maps.google.com/maps?q=Taipei%20Performing%20Arts%20Center&t=&z=15&ie=UTF8&iwloc=&output=embed"
-                className="aspect-[4/3] w-full border-0 lg:aspect-video"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+            <div>
+              <p className="text-sm font-medium text-foreground">Instagram</p>
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+              >
+                <InstagramIcon className="h-4 w-4 shrink-0 text-gold" />
+                {instagramUrl}
+              </a>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-foreground">Facebook</p>
+              <a
+                href={facebookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+              >
+                <FacebookIcon className="h-4 w-4 shrink-0 text-gold" />
+                {facebookUrl}
+              </a>
             </div>
           </div>
         </FadeIn>

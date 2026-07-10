@@ -1,4 +1,4 @@
-import type { RegistrationFormValues } from "@/lib/validation/registration-schema";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 
 export type OrderStatus = "pending" | "paid" | "failed" | "cancelled";
 
@@ -15,7 +15,7 @@ export type OrderRecord = {
   name: string;
   email: string;
   phone: string;
-  form_data: RegistrationFormValues;
+  form_data: RegistrationOrderFormData;
   paid_at: string | null;
   created_at: string;
   updated_at: string;

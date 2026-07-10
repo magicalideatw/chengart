@@ -3,21 +3,48 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import type { Event } from "@/src/data/events";
-import { canRegister } from "@/src/data/events";
+import type { EventPageData } from "@/lib/events/types";
+import {
+  canRegister,
+  getClosedRegistrationLabel,
+} from "@/lib/events/status";
 
 type EventHeroProps = {
-  event: Event;
+  event: EventPageData;
 };
 
 export function EventHero({ event }: EventHeroProps) {
-  const open = canRegister(event);
+  const open = canRegister(event.status);
+  const buttonText = event.registrationButtonText || "立即報名";
+
+  const cta =
+    open && event.registrationUrl ? (
+      <Link
+        href={event.registrationUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
+      >
+        {buttonText}
+      </Link>
+    ) : open ? (
+      <Link
+        href="#register"
+        className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
+      >
+        {buttonText}
+      </Link>
+    ) : (
+      <span className="mt-8 inline-flex cursor-not-allowed items-center justify-center rounded-full bg-white/20 px-8 py-3.5 text-sm font-medium text-white/60">
+        {getClosedRegistrationLabel(event.status)}
+      </span>
+    );
 
   return (
     <section className="relative">
       <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-[21/9]">
         <Image
-          src={event.heroImage}
+          src={event.coverImage}
           alt={event.title}
           fill
           priority
@@ -40,18 +67,7 @@ export function EventHero({ event }: EventHeroProps) {
           <p className="mt-4 text-base leading-relaxed text-white/80 sm:text-lg">
             {event.subtitle}
           </p>
-          {open ? (
-            <Link
-              href="#register"
-              className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
-            >
-              立即報名
-            </Link>
-          ) : (
-            <span className="mt-8 inline-flex cursor-not-allowed items-center justify-center rounded-full bg-white/20 px-8 py-3.5 text-sm font-medium text-white/60">
-              已額滿
-            </span>
-          )}
+          {cta}
         </motion.div>
       </div>
     </section>

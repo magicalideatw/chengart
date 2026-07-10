@@ -3,22 +3,20 @@ import { notFound } from "next/navigation";
 import { EventPageContent } from "@/components/events/EventPageContent";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
-import { events, getEventBySlug } from "@/src/data/events";
+import { getEventBySlug } from "@/lib/events/queries";
 import { siteConfig } from "@/lib/data/site";
+
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export async function generateStaticParams() {
-  return events.map((event) => ({ slug: event.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const event = getEventBySlug(slug);
+  const event = await getEventBySlug(slug);
 
   if (!event) {
     return { title: "活動不存在" };
@@ -26,18 +24,20 @@ export async function generateMetadata({
 
   return {
     title: `${event.title} | ${siteConfig.name}`,
-    description: event.subtitle,
+    description: event.subtitle || event.intro,
     openGraph: {
       title: event.title,
-      description: event.subtitle,
-      images: [{ url: event.heroImage, width: 1200, height: 630 }],
+      description: event.subtitle || event.intro,
+      images: event.coverImage
+        ? [{ url: event.coverImage, width: 1200, height: 630 }]
+        : undefined,
     },
   };
 }
 
 export default async function EventPage({ params }: PageProps) {
   const { slug } = await params;
-  const event = getEventBySlug(slug);
+  const event = await getEventBySlug(slug);
 
   if (!event) {
     notFound();

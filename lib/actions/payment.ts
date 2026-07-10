@@ -3,6 +3,8 @@
 import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { createPendingOrder } from "@/lib/orders/queries";
+import { validateSessionSelection } from "@/lib/registration/queries";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   registrationFormSchema,
@@ -12,6 +14,7 @@ import {
 export type CreateRegistrationOrderInput = {
   courseId: string;
   formData: RegistrationFormValues;
+  sessionIds?: string[];
 };
 
 export type CreateRegistrationOrderResult =
@@ -49,11 +52,35 @@ export async function createRegistrationOrder(
     return { success: false, error: "此課程目前未開放報名" };
   }
 
-  if (course.isFull) {
-    return { success: false, error: "此課程已額滿" };
+  const sessionIds = input.sessionIds?.filter(Boolean) ?? [];
+  let amount = course.fee;
+  let orderFormData: RegistrationOrderFormData = parsed.data;
+
+  if (sessionIds.length > 0) {
+    const validation = await validateSessionSelection(course.id, sessionIds);
+    if (!validation.success) {
+      return { success: false, error: validation.error };
+    }
+
+    amount = validation.data.totalAmount;
+    orderFormData = {
+      ...parsed.data,
+      sessionIds,
+      sessionSummaries: validation.data.sessionSummaries,
+      unitPrice:
+        sessionIds.length > 0 ? Math.round(amount / sessionIds.length) : course.fee,
+    };
+  } else {
+    if (course.isFull) {
+      return { success: false, error: "此課程已額滿" };
+    }
+
+    if (course.fee <= 0) {
+      return { success: false, error: "此課程費用設定有誤，請聯絡管理員" };
+    }
   }
 
-  if (course.fee <= 0) {
+  if (amount <= 0) {
     return { success: false, error: "此課程費用設定有誤，請聯絡管理員" };
   }
 
@@ -62,8 +89,8 @@ export async function createRegistrationOrder(
     merchantTradeNo,
     courseId: course.id,
     courseTitle: course.title,
-    amount: course.fee,
-    formData: parsed.data,
+    amount,
+    formData: orderFormData,
   });
 
   if (!order) {
