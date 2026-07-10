@@ -2,11 +2,11 @@ import { Mail } from "lucide-react";
 import { FacebookIcon, InstagramIcon } from "@/components/icons/SocialIcons";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { siteConfig } from "@/lib/data/site";
 
-const contactEmail = "chengart.theatre@gmail.com";
-const instagramUrl = "https://www.instagram.com/chengart.theatre/";
-const facebookUrl =
-  "https://www.facebook.com/p/%E6%99%9F%E5%BF%83%E8%AA%A0%E8%97%9D%E5%8A%87%E5%9C%98-61583538620533/";
+const contactEmail = siteConfig.email;
+const instagramUrl = siteConfig.instagram;
+const facebookUrl = siteConfig.facebook;
 
 const linkClass =
   "mt-2 flex items-center gap-3 break-all text-sm text-muted transition hover:text-foreground";

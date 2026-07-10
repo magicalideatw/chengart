@@ -7,8 +7,7 @@ export const siteConfig = {
     "晟心誠藝劇團提供魔術、戲劇、舞蹈藝術教育與專業演出服務，服務兒童、青少年、成人、學校與企業。",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://chengart.tw",
   email: "chengart.theatre@gmail.com",
-  facebook:
-    "https://www.facebook.com/p/%E6%99%9F%E5%BF%83%E8%AA%A0%E8%97%9D%E5%8A%87%E5%9C%98-61583538620533/",
+  facebook: "http://facebook.com/chengart.theatre",
   instagram: "https://www.instagram.com/chengart.theatre/",
   footerSlogan:
     "以魔術、戲劇、舞蹈與藝術教育，打造兼具感動、創意與教育意義的藝術體驗。",
