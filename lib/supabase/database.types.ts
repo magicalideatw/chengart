@@ -25,6 +25,7 @@ export type Database = {
           fee: number;
           cover_image: string;
           is_open: boolean;
+          allowed_payment_methods: Json;
           created_at: string;
           updated_at: string;
           slug?: string;
@@ -43,6 +44,7 @@ export type Database = {
           fee?: number;
           cover_image: string;
           is_open?: boolean;
+          allowed_payment_methods?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -57,6 +59,7 @@ export type Database = {
           fee?: number;
           cover_image?: string;
           is_open?: boolean;
+          allowed_payment_methods?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -313,7 +316,8 @@ export type Database = {
           merchant_trade_no: string;
           course_id: string;
           course_title: string;
-          status: "pending" | "paid" | "failed" | "cancelled";
+          status: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
+          payment_status: "pending" | "waiting_transfer" | "paid" | "cancelled";
           amount: number;
           payment_method: string | null;
           ecpay_trade_no: string | null;
@@ -331,7 +335,8 @@ export type Database = {
           merchant_trade_no: string;
           course_id: string;
           course_title: string;
-          status?: "pending" | "paid" | "failed" | "cancelled";
+          status?: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
+          payment_status?: "pending" | "waiting_transfer" | "paid" | "cancelled";
           amount: number;
           payment_method?: string | null;
           ecpay_trade_no?: string | null;
@@ -349,7 +354,8 @@ export type Database = {
           merchant_trade_no?: string;
           course_id?: string;
           course_title?: string;
-          status?: "pending" | "paid" | "failed" | "cancelled";
+          status?: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
+          payment_status?: "pending" | "waiting_transfer" | "paid" | "cancelled";
           amount?: number;
           payment_method?: string | null;
           ecpay_trade_no?: string | null;
@@ -378,6 +384,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      system_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       homepage_announcements: {
         Row: {

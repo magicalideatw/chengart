@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PAYMENT_METHODS } from "@/lib/payment/types";
 
 export const registrationStudentSchema = z.object({
   clientId: z.string().optional(),
@@ -36,6 +37,7 @@ export const registrationFormSchema = parentFormSchema.extend({
 export type RegistrationFormValues = ParentFormValues;
 
 export const registrationOrderFormSchema = parentFormSchema.extend({
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
   studentName: z.string().optional(),
   studentAge: z.string().optional(),

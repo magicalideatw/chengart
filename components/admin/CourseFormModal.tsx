@@ -4,6 +4,11 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
 import type { Course, CourseFormInput } from "@/lib/courses/types";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+  type PaymentMethod,
+} from "@/lib/payment/types";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -22,6 +27,7 @@ const emptyForm: CourseFormInput = {
   fee: 0,
   coverImage: "",
   isOpen: true,
+  allowedPaymentMethods: ["ecpay"],
 };
 
 const inputClass =
@@ -45,6 +51,7 @@ export function CourseFormModal({
           fee: course.fee,
           coverImage: course.coverImage,
           isOpen: course.isOpen,
+          allowedPaymentMethods: course.allowedPaymentMethods,
         }
       : emptyForm,
   );
@@ -186,6 +193,39 @@ export function CourseFormModal({
             />
             開放報名
           </label>
+
+          <div>
+            <p className="text-sm font-medium text-foreground">付款方式</p>
+            <div className="mt-3 space-y-3">
+              {PAYMENT_METHODS.map((method) => (
+                <label
+                  key={method}
+                  className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.allowedPaymentMethods.includes(method)}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setForm((current) => {
+                        const next = checked
+                          ? [...new Set([...current.allowedPaymentMethods, method])]
+                          : current.allowedPaymentMethods.filter(
+                              (item) => item !== method,
+                            );
+                        return {
+                          ...current,
+                          allowedPaymentMethods: next as PaymentMethod[],
+                        };
+                      });
+                    }}
+                    className="h-4 w-4 accent-gold"
+                  />
+                  {PAYMENT_METHOD_LABELS[method]}
+                </label>
+              ))}
+            </div>
+          </div>
 
           {error && (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

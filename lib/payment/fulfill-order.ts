@@ -1,11 +1,9 @@
 import { revalidatePath } from "next/cache";
-import { formatEcpayPaymentMethod } from "@/lib/ecpay/payment-method";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { canFulfillOrder, isOrderPaid, type OrderRecord } from "@/lib/orders/types";
 import { getCourseWithEnrollment, getEnrollmentCount } from "@/lib/courses/queries";
 import { sendRegistrationNotifications } from "@/lib/email/send-registration-notifications";
-import {
-  getOrderByMerchantTradeNo,
-  updateOrderStatus,
-} from "@/lib/orders/queries";
+import { getOrderById, getOrderByMerchantTradeNo, updateOrderStatus } from "@/lib/orders/queries";
 import { validateSessionSelection } from "@/lib/registration/queries";
 import {
   getSessionIdsFromFormData,
@@ -350,48 +348,23 @@ async function fulfillStudentsOrder(input: {
   return { success: true, registrationIds };
 }
 
-export async function fulfillPaidOrder(input: {
-  merchantTradeNo: string;
+async function completeOrderAfterFulfillment(input: {
+  order: OrderRecord;
+  paymentMethod: PaymentMethod;
   ecpayTradeNo?: string | null;
-  paymentType?: string | null;
 }): Promise<FulfillOrderResult> {
-  const order = await getOrderByMerchantTradeNo(input.merchantTradeNo);
-
-  if (!order) {
-    return { success: false, error: "找不到訂單" };
-  }
-
-  if (order.status === "paid") {
-    return { success: true, alreadyPaid: true };
-  }
-
-  if (order.status !== "pending") {
-    return { success: false, error: "訂單狀態不可完成付款" };
-  }
-
-  const course = await getCourseWithEnrollment(order.course_id);
+  const course = await getCourseWithEnrollment(input.order.course_id);
 
   if (!course) {
     return { success: false, error: "找不到課程" };
   }
 
-  if (!course.isOpen) {
-    return { success: false, error: "課程已關閉" };
-  }
-
-  const formData = order.form_data as RegistrationOrderFormData;
+  const formData = input.order.form_data as RegistrationOrderFormData;
   const usesSessions = usesMultiSessionRegistration(formData);
 
-  console.log("fulfillPaidOrder", {
-    orderId: order.id,
-    merchantTradeNo: input.merchantTradeNo,
-    usesSessions,
-    studentCount: normalizeStudentsFromFormData(formData).length,
-  });
-
   const result = await fulfillStudentsOrder({
-    orderId: order.id,
-    courseId: order.course_id,
+    orderId: input.order.id,
+    courseId: input.order.course_id,
     courseTitle: course.title,
     sessionDate: course.sessionDate,
     sessionTime: course.sessionTime,
@@ -409,10 +382,11 @@ export async function fulfillPaidOrder(input: {
   }
 
   const paidAt = new Date().toISOString();
-  const updated = await updateOrderStatus(order.id, {
+  const updated = await updateOrderStatus(input.order.id, {
     status: "paid",
-    payment_method: formatEcpayPaymentMethod(input.paymentType),
-    ecpay_trade_no: input.ecpayTradeNo ?? null,
+    payment_status: "paid",
+    payment_method: input.paymentMethod,
+    ecpay_trade_no: input.ecpayTradeNo ?? input.order.ecpay_trade_no,
     registration_id: registrationId,
     paid_at: paidAt,
   });
@@ -421,7 +395,7 @@ export async function fulfillPaidOrder(input: {
     return { success: false, error: "更新訂單失敗" };
   }
 
-  revalidatePath(`/courses/${order.course_id}`);
+  revalidatePath(`/courses/${input.order.course_id}`);
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/orders");
@@ -439,4 +413,78 @@ export async function fulfillPaidOrder(input: {
   }
 
   return { success: true, alreadyPaid: false };
+}
+
+export async function fulfillOrderById(orderId: string): Promise<FulfillOrderResult> {
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    return { success: false, error: "找不到訂單" };
+  }
+
+  if (isOrderPaid(order)) {
+    return { success: true, alreadyPaid: true };
+  }
+
+  if (!canFulfillOrder(order)) {
+    return { success: false, error: "訂單狀態不可完成付款" };
+  }
+
+  const course = await getCourseWithEnrollment(order.course_id);
+  if (!course) {
+    return { success: false, error: "找不到課程" };
+  }
+
+  if (!course.isOpen) {
+    return { success: false, error: "課程已關閉" };
+  }
+
+  const paymentMethod = order.payment_method ?? "free";
+
+  return completeOrderAfterFulfillment({
+    order,
+    paymentMethod,
+  });
+}
+
+export async function fulfillPaidOrder(input: {
+  merchantTradeNo: string;
+  ecpayTradeNo?: string | null;
+  paymentType?: string | null;
+}): Promise<FulfillOrderResult> {
+  const order = await getOrderByMerchantTradeNo(input.merchantTradeNo);
+
+  if (!order) {
+    return { success: false, error: "找不到訂單" };
+  }
+
+  if (isOrderPaid(order)) {
+    return { success: true, alreadyPaid: true };
+  }
+
+  if (!canFulfillOrder(order)) {
+    return { success: false, error: "訂單狀態不可完成付款" };
+  }
+
+  const course = await getCourseWithEnrollment(order.course_id);
+
+  if (!course) {
+    return { success: false, error: "找不到課程" };
+  }
+
+  if (!course.isOpen) {
+    return { success: false, error: "課程已關閉" };
+  }
+
+  console.log("fulfillPaidOrder", {
+    orderId: order.id,
+    merchantTradeNo: input.merchantTradeNo,
+    paymentMethod: order.payment_method,
+  });
+
+  return completeOrderAfterFulfillment({
+    order,
+    paymentMethod: "ecpay",
+    ecpayTradeNo: input.ecpayTradeNo ?? null,
+  });
 }

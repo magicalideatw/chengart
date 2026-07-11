@@ -3,6 +3,7 @@ import { buildEcpayCheckoutForm } from "@/lib/ecpay/build-checkout";
 import { getPublicSiteUrl } from "@/lib/ecpay/config";
 import { siteConfig } from "@/lib/data/site";
 import { getOrderById } from "@/lib/orders/queries";
+import { isOrderPaid } from "@/lib/orders/types";
 import { EcpayCheckoutForm } from "@/components/payment/EcpayCheckoutForm";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,19 @@ export default async function PaymentCheckoutPage({ params }: CheckoutPageProps)
     notFound();
   }
 
-  if (order.status === "paid") {
+  if (isOrderPaid(order)) {
     redirect(`/payment/success?orderId=${order.id}`);
   }
 
-  if (order.status !== "pending") {
+  if (order.payment_method === "bank_transfer") {
+    redirect(`/payment/bank-transfer/${order.id}`);
+  }
+
+  if (order.payment_method === "free") {
+    redirect(`/payment/success?orderId=${order.id}`);
+  }
+
+  if (order.payment_status !== "pending" && order.status !== "pending") {
     redirect(`/payment/fail?orderId=${order.id}`);
   }
 

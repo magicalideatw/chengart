@@ -11,6 +11,7 @@ const links = [
   { href: "/admin/courses", label: "課程" },
   { href: "/admin/registrations", label: "報名" },
   { href: "/admin/orders", label: "訂單" },
+  { href: "/admin/settings", label: "設定" },
   { href: "/admin/announcements", label: "公告" },
   { href: "/admin/events", label: "活動" },
 ];

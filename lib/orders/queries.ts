@@ -1,16 +1,35 @@
 import type { OrderListItem, OrderRecord } from "@/lib/orders/types";
+import type { PaymentMethod, PaymentStatus } from "@/lib/payment/types";
+import { isPaymentMethod } from "@/lib/payment/types";
 import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { createPaymentClient, createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import type { Database } from "@/lib/supabase/database.types";
+
+function parsePaymentStatus(value: unknown): PaymentStatus {
+  if (
+    value === "pending" ||
+    value === "waiting_transfer" ||
+    value === "paid" ||
+    value === "cancelled"
+  ) {
+    return value;
+  }
+  return "pending";
+}
 
 function mapOrderRow(row: Record<string, unknown>): OrderRecord {
+  const paymentMethod = row.payment_method ? String(row.payment_method) : null;
+
   return {
     id: String(row.id),
     merchant_trade_no: String(row.merchant_trade_no),
     course_id: String(row.course_id),
     course_title: String(row.course_title),
     status: row.status as OrderRecord["status"],
+    payment_status: parsePaymentStatus(row.payment_status ?? row.status),
     amount: Number(row.amount),
-    payment_method: row.payment_method ? String(row.payment_method) : null,
+    payment_method:
+      paymentMethod && isPaymentMethod(paymentMethod) ? paymentMethod : null,
     ecpay_trade_no: row.ecpay_trade_no ? String(row.ecpay_trade_no) : null,
     registration_id: row.registration_id ? String(row.registration_id) : null,
     name: String(row.name),
@@ -78,18 +97,25 @@ export async function getAllOrders(): Promise<OrderListItem[]> {
   return (data ?? []).map((row) => mapOrderRow(row));
 }
 
-export async function createPendingOrder(input: {
+export async function createOrder(input: {
   merchantTradeNo: string;
   courseId: string;
   courseTitle: string;
   amount: number;
   formData: RegistrationOrderFormData;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
 }): Promise<{ order: OrderRecord | null; error?: string }> {
   if (!isSupabaseConfigured()) {
     return { order: null, error: "Supabase 尚未設定" };
   }
 
   const supabase = createPaymentClient();
+  const status =
+    input.paymentStatus === "waiting_transfer"
+      ? "waiting_transfer"
+      : input.paymentStatus;
+
   const { data, error } = await supabase
     .from("orders")
     .insert({
@@ -97,7 +123,9 @@ export async function createPendingOrder(input: {
       course_id: input.courseId,
       course_title: input.courseTitle,
       amount: input.amount,
-      status: "pending",
+      status,
+      payment_status: input.paymentStatus,
+      payment_method: input.paymentMethod,
       name: input.formData.name,
       email: input.formData.email,
       phone: input.formData.phone,
@@ -142,11 +170,27 @@ export async function createPendingOrder(input: {
   return { order: mapOrderRow(data) };
 }
 
+/** @deprecated use createOrder */
+export async function createPendingOrder(input: {
+  merchantTradeNo: string;
+  courseId: string;
+  courseTitle: string;
+  amount: number;
+  formData: RegistrationOrderFormData;
+}): Promise<{ order: OrderRecord | null; error?: string }> {
+  return createOrder({
+    ...input,
+    paymentMethod: "ecpay",
+    paymentStatus: "pending",
+  });
+}
+
 export async function updateOrderStatus(
   orderId: string,
   patch: Partial<{
     status: OrderRecord["status"];
-    payment_method: string | null;
+    payment_status: PaymentStatus;
+    payment_method: PaymentMethod | null;
     ecpay_trade_no: string | null;
     registration_id: string | null;
     paid_at: string | null;
@@ -155,13 +199,19 @@ export async function updateOrderStatus(
   if (!isSupabaseConfigured()) return false;
 
   const supabase = createPaymentClient();
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      ...patch,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
+  const payload: Database["public"]["Tables"]["orders"]["Update"] = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (patch.payment_status && !patch.status) {
+    payload.status =
+      patch.payment_status === "waiting_transfer"
+        ? "waiting_transfer"
+        : patch.payment_status;
+  }
+
+  const { error } = await supabase.from("orders").update(payload).eq("id", orderId);
 
   if (error) {
     console.error("Failed to update order:", error.message);

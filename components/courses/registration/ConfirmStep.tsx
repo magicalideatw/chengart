@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import type { ParentFormValues } from "@/lib/validation/registration-schema";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment/types";
 
 type ConfirmStepProps = {
   courseTitle: string;
@@ -13,6 +15,7 @@ type ConfirmStepProps = {
   usesSessions: boolean;
   classes: ClassWithSessionsOption[];
   formData: ParentFormValues;
+  paymentMethod?: PaymentMethod | null;
 };
 
 function findSessionLabel(
@@ -36,12 +39,16 @@ export function ConfirmStep({
   usesSessions,
   classes,
   formData,
+  paymentMethod,
 }: ConfirmStepProps) {
   const rows = [
     { label: "課程", value: courseTitle },
     ...(dateLabel ? [{ label: "日期", value: dateLabel }] : []),
     ...(classTime ? [{ label: "時間", value: classTime }] : []),
     { label: "費用", value: feeLabel },
+    ...(paymentMethod
+      ? [{ label: "付款方式", value: PAYMENT_METHOD_LABELS[paymentMethod] }]
+      : []),
     { label: "家長姓名", value: formData.name },
     { label: "電話", value: formData.phone },
     { label: "Email", value: formData.email },
@@ -66,7 +73,11 @@ export function ConfirmStep({
           確認資料
         </p>
         <p className="mt-2 text-sm text-muted">
-          確認無誤後，將前往綠界安全付款頁面（支援 LINE Pay、信用卡、ATM）。
+          {paymentMethod === "free"
+            ? "確認無誤後，將直接完成報名。"
+            : paymentMethod === "bank_transfer"
+              ? "確認無誤後，將顯示銀行匯款資訊。"
+              : "確認無誤後，將前往安全付款頁面（支援 LINE Pay、信用卡、ATM）。"}
         </p>
       </div>
 

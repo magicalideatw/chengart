@@ -8,6 +8,7 @@ export type OrderStudentInput = RegistrationStudentInput;
 export type RegistrationOrderFormData = RegistrationOrderFormValues & {
   unitPrice?: number;
   sessionSummaries?: string[];
+  paymentMethod?: import("@/lib/payment/types").PaymentMethod;
   /** @deprecated legacy single-student fields */
   studentName?: string;
   studentAge?: string;

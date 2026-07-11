@@ -8,6 +8,11 @@ import { motion } from "framer-motion";
 import { createRegistrationOrder } from "@/lib/actions/payment";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
+import type { PaymentMethod } from "@/lib/payment/types";
+import {
+  resolveAvailablePaymentMethods,
+  resolveDefaultPaymentMethod,
+} from "@/lib/payment/types";
 import {
   buildSessionPriceMap,
   calculateOrderTotal,
@@ -22,6 +27,7 @@ import { CourseRegistrationHero } from "./CourseRegistrationHero";
 import { StepIndicator, StepHeader } from "./StepIndicator";
 import { ParentStudentFormStep } from "./ParentStudentFormStep";
 import { ConfirmStep } from "./ConfirmStep";
+import { PaymentMethodSelector } from "./PaymentMethodSelector";
 
 type CourseRegistrationFlowProps = {
   course: CourseWithEnrollment;
@@ -69,7 +75,28 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     [usesSessions, course.fee, watchedStudents, sessionPriceMap, plan.defaultUnitPrice],
   );
 
+  const availablePaymentMethods = useMemo(
+    () =>
+      resolveAvailablePaymentMethods({
+        allowedMethods: course.allowedPaymentMethods,
+        totalAmount,
+      }),
+    [course.allowedPaymentMethods, totalAmount],
+  );
+
+  const defaultPaymentMethod = useMemo(
+    () => resolveDefaultPaymentMethod(availablePaymentMethods),
+    [availablePaymentMethods],
+  );
+
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    defaultPaymentMethod,
+  );
+
+  const activePaymentMethod = paymentMethod ?? defaultPaymentMethod;
+
   const handleNextFromForm = methods.handleSubmit(() => {
+    setPaymentMethod((current) => current ?? defaultPaymentMethod);
     setShowConfirm(true);
     setErrorMessage(null);
     setTimeout(() => {
@@ -80,8 +107,19 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     }, 100);
   });
 
+  const submitLabel = useMemo(() => {
+    if (!activePaymentMethod) return "確認報名";
+    if (activePaymentMethod === "free") return "完成報名";
+    if (activePaymentMethod === "bank_transfer") return "確認報名並查看匯款資訊";
+    return "前往信用卡付款";
+  }, [activePaymentMethod]);
+
   const handleConfirmRegistration = () => {
     if (isPending || isSubmittingOrderRef.current) return;
+    if (!activePaymentMethod) {
+      setErrorMessage("請選擇付款方式");
+      return;
+    }
 
     setErrorMessage(null);
     isSubmittingOrderRef.current = true;
@@ -91,11 +129,15 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
         const formData = methods.getValues();
         const result = await createRegistrationOrder({
           courseId: course.id,
-          formData,
+          formData: {
+            ...formData,
+            paymentMethod: activePaymentMethod,
+          },
+          paymentMethod: activePaymentMethod,
         });
 
         if (result.success) {
-          router.push(result.checkoutPath);
+          router.push(result.redirectPath);
           return;
         }
 
@@ -166,7 +208,17 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                       usesSessions={usesSessions}
                       classes={plan.classes}
                       formData={formData}
+                      paymentMethod={activePaymentMethod}
                     />
+
+                    <div className="mt-6">
+                      <PaymentMethodSelector
+                        availableMethods={availablePaymentMethods}
+                        value={activePaymentMethod}
+                        onChange={setPaymentMethod}
+                        totalAmount={totalAmount}
+                      />
+                    </div>
 
                     {errorMessage && (
                       <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -185,10 +237,10 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                       <button
                         type="button"
                         onClick={handleConfirmRegistration}
-                        disabled={isPending}
+                        disabled={isPending || !activePaymentMethod}
                         className="rounded-full bg-gold px-6 py-4 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {isPending ? "建立訂單中…" : "前往綠界付款"}
+                        {isPending ? "處理中…" : submitLabel}
                       </button>
                     </div>
                   </motion.div>

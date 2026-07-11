@@ -1,5 +1,7 @@
 import type { Database } from "@/lib/supabase/database.types";
 import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/types";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { parsePaymentMethods } from "@/lib/payment/types";
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -37,6 +39,7 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     fee: 0,
     coverImage: row.cover_image ?? "",
     isOpen: true,
+    allowedPaymentMethods: ["ecpay"],
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
@@ -60,6 +63,7 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     fee: course.fee ?? 0,
     coverImage: course.cover_image ?? "",
     isOpen: course.is_open ?? false,
+    allowedPaymentMethods: parsePaymentMethods(course.allowed_payment_methods),
     createdAt: course.created_at ?? new Date().toISOString(),
     updatedAt: course.updated_at ?? new Date().toISOString(),
   };
@@ -102,6 +106,7 @@ export function mapCourseToDb(input: {
   fee: number;
   coverImage: string;
   isOpen: boolean;
+  allowedPaymentMethods: PaymentMethod[];
 }): Database["public"]["Tables"]["courses"]["Insert"] {
   return {
     title: input.title,
@@ -113,6 +118,7 @@ export function mapCourseToDb(input: {
     fee: input.fee,
     cover_image: input.coverImage,
     is_open: input.isOpen,
+    allowed_payment_methods: input.allowedPaymentMethods,
   };
 }
 

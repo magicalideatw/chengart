@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
+import { PAYMENT_METHODS } from "@/lib/payment/types";
 
 export const adminCourseSchema = z.object({
   title: z.string().min(1, "請填寫課程名稱"),
@@ -17,6 +18,9 @@ export const adminCourseSchema = z.object({
   fee: z.coerce.number().int().min(0, "費用不可為負數"),
   coverImage: z.string().url("請輸入有效的圖片網址"),
   isOpen: z.boolean(),
+  allowedPaymentMethods: z
+    .array(z.enum(PAYMENT_METHODS))
+    .min(1, "請至少選擇一種付款方式"),
 });
 
 export type AdminCourseFormValues = z.infer<typeof adminCourseSchema>;

@@ -1,30 +1,45 @@
 import Link from "next/link";
 import { formatFee } from "@/lib/admin/format";
 import { getOrderById } from "@/lib/orders/queries";
+import { isOrderPaid } from "@/lib/orders/types";
+import {
+  getPaymentMethodLabel,
+  getPaymentStatusLabel,
+} from "@/lib/payment/types";
 
 export const dynamic = "force-dynamic";
 
 type PaymentSuccessPageProps = {
-  searchParams: Promise<{ orderId?: string }>;
+  searchParams: Promise<{ orderId?: string; pending?: string }>;
 };
 
 export default async function PaymentSuccessPage({
   searchParams,
 }: PaymentSuccessPageProps) {
-  const { orderId } = await searchParams;
+  const { orderId, pending } = await searchParams;
   const order = orderId ? await getOrderById(orderId) : null;
+  const isPendingView = pending === "1" && order && !isOrderPaid(order);
+  const isFree = order?.payment_method === "free";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-5 py-16">
       <div className="w-full max-w-lg rounded-3xl border border-border bg-white p-8 text-center shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-gold">
-          Payment Success
+          {isPendingView ? "Order Pending" : "Payment Success"}
         </p>
         <h1 className="mt-2 font-display text-3xl font-semibold text-foreground">
-          付款成功
+          {isPendingView
+            ? "訂單已建立"
+            : isFree
+              ? "報名成功"
+              : "付款成功"}
         </h1>
         <p className="mt-3 text-sm text-muted">
-          感謝您的報名，我們已收到您的付款，確認信將寄送至您的 Email。
+          {isPendingView
+            ? "您的訂單已建立，請依指示完成匯款。管理員確認收款後，報名才會正式生效。"
+            : isFree
+              ? "您的報名已完成，確認信將寄送至您的 Email。"
+              : "感謝您的報名，我們已收到您的付款，確認信將寄送至您的 Email。"}
         </p>
 
         {order && (
@@ -40,6 +55,18 @@ export default async function PaymentSuccessPage({
             <div className="flex justify-between gap-4">
               <dt className="text-muted">金額</dt>
               <dd className="font-medium text-foreground">{formatFee(order.amount)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">付款方式</dt>
+              <dd className="font-medium text-foreground">
+                {getPaymentMethodLabel(order.payment_method)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">狀態</dt>
+              <dd className="font-medium text-foreground">
+                {getPaymentStatusLabel(order.payment_status)}
+              </dd>
             </div>
           </dl>
         )}
