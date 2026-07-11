@@ -1,42 +1,54 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { RegistrationFormValues } from "@/lib/validation/registration-schema";
+import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
+import type { ClassWithSessionsOption } from "@/lib/registration/queries";
+import type { ParentFormValues } from "@/lib/validation/registration-schema";
 
 type ConfirmStepProps = {
+  courseTitle: string;
   dateLabel?: string;
-  className: string;
   classTime?: string;
   feeLabel: string;
-  sessionSummaries?: string[];
-  formData: RegistrationFormValues;
+  usesSessions: boolean;
+  classes: ClassWithSessionsOption[];
+  formData: ParentFormValues;
 };
 
+function findSessionLabel(
+  classes: ClassWithSessionsOption[],
+  sessionId: string,
+): string {
+  for (const item of classes) {
+    const session = item.sessions.find((entry) => entry.id === sessionId);
+    if (session) {
+      return `${formatSessionCheckboxLabel(session.date)} ${session.startTime}~${session.endTime}`;
+    }
+  }
+  return sessionId;
+}
+
 export function ConfirmStep({
+  courseTitle,
   dateLabel,
-  className,
   classTime,
   feeLabel,
-  sessionSummaries,
+  usesSessions,
+  classes,
   formData,
 }: ConfirmStepProps) {
   const rows = [
-    { label: "課程", value: className },
-    ...(sessionSummaries && sessionSummaries.length > 0
-      ? [{ label: "上課日期", value: sessionSummaries.join("\n") }]
-      : dateLabel
-        ? [{ label: "日期", value: dateLabel }]
-        : []),
+    { label: "課程", value: courseTitle },
+    ...(dateLabel ? [{ label: "日期", value: dateLabel }] : []),
     ...(classTime ? [{ label: "時間", value: classTime }] : []),
     { label: "費用", value: feeLabel },
-    { label: "姓名", value: formData.name },
-    { label: "學生姓名", value: formData.studentName },
+    { label: "家長姓名", value: formData.name },
     { label: "電話", value: formData.phone },
     { label: "Email", value: formData.email },
   ];
 
-  if (formData.note?.trim()) {
-    rows.push({ label: "備註", value: formData.note.trim() });
+  if (formData.parentNote?.trim()) {
+    rows.push({ label: "家長備註", value: formData.parentNote.trim() });
   }
 
   return (
@@ -71,6 +83,37 @@ export function ConfirmStep({
           </div>
         ))}
       </dl>
+
+      <div className="border-t border-border px-6 py-5 sm:px-8">
+        <p className="text-sm font-medium text-foreground">
+          報名學生（共 {formData.students.length} 位）
+        </p>
+        <div className="mt-4 space-y-4">
+          {formData.students.map((student, index) => (
+            <div
+              key={student.clientId ?? index}
+              className="rounded-2xl border border-border bg-surface px-4 py-4"
+            >
+              <p className="font-medium text-foreground">
+                學生 {index + 1}：{student.studentName || "—"}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                年齡 {student.studentAge || "—"} ·{" "}
+                {student.isFirstTime === "yes" ? "第一次參加" : "非第一次參加"}
+              </p>
+              {usesSessions ? (
+                <ul className="mt-3 space-y-1 text-sm text-foreground">
+                  {(student.sessionIds ?? []).map((sessionId) => (
+                    <li key={sessionId}>
+                      ✓ {findSessionLabel(classes, sessionId)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
     </motion.div>
   );
 }

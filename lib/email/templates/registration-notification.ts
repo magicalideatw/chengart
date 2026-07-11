@@ -72,11 +72,23 @@ function renderEmailShell(
 }
 
 function renderAdminDetailRows(data: RegistrationEmailData): string {
+  const studentRows = data.students
+    .map(
+      (student, index) =>
+        renderRow(
+          `學生 ${index + 1}`,
+          `${student.name}（${student.age} 歲）${student.sessions.length ? ` · ${student.sessions.join("、")}` : ""}`,
+        ),
+    )
+    .join("");
+
   return [
     renderRow("課程名稱", data.courseTitle),
-    renderRow("姓名", data.name),
+    renderRow("家長姓名", data.name),
     renderRow("Email", data.email),
     renderRow("電話", data.phone),
+    renderRow("學生數", String(data.studentCount)),
+    studentRows,
     renderRow("人數", data.enrollmentLabel),
     renderRow("備註", data.note),
     renderRow("報名時間", data.registeredAt),
@@ -113,6 +125,16 @@ export function buildParentRegistrationEmail(data: RegistrationEmailData): {
       ${renderRow("課程名稱", data.courseTitle)}
       ${renderRow("日期", data.sessionDate)}
       ${renderRow("時間", data.sessionTime)}
+      ${renderRow("學生數", String(data.studentCount))}
+      ${data.students
+        .map(
+          (student, index) =>
+            renderRow(
+              `學生 ${index + 1}`,
+              `${student.name}（${student.age} 歲）`,
+            ),
+        )
+        .join("")}
       ${renderRow("人數", data.enrollmentLabel)}
     </table>
     <p style="margin:24px 0 8px;font-size:14px;line-height:1.7;color:${MUTED};">若有問題歡迎回信。</p>

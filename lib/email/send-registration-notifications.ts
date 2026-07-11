@@ -7,12 +7,16 @@ import {
 } from "@/lib/email/templates/registration-notification";
 import type { RegistrationEmailData } from "@/lib/email/types";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
-import type { RegistrationOrderFormData } from "@/lib/registration/types";
-import { usesMultiSessionRegistration } from "@/lib/registration/types";
+import {
+  normalizeStudentsFromFormData,
+  usesMultiSessionRegistration,
+  type RegistrationOrderFormData,
+} from "@/lib/registration/types";
+import type { ParentFormValues } from "@/lib/validation/registration-schema";
 
 type SendRegistrationNotificationsInput = {
   course: CourseWithEnrollment;
-  formData: RegistrationOrderFormData;
+  formData: RegistrationOrderFormData | ParentFormValues;
   enrollmentCount: number;
 };
 
@@ -20,7 +24,32 @@ function buildEmailData(
   input: SendRegistrationNotificationsInput,
 ): RegistrationEmailData {
   const { course, formData, enrollmentCount } = input;
-  const multiSession = usesMultiSessionRegistration(formData);
+  const students = normalizeStudentsFromFormData(
+    formData as RegistrationOrderFormData,
+  );
+  const multiSession = usesMultiSessionRegistration(
+    formData as RegistrationOrderFormData,
+  );
+
+  const sessionSummaries = students.flatMap((student) =>
+    (student.sessionIds ?? []).length > 0
+      ? [`${student.studentName}：${student.sessionIds?.length ?? 0} 堂`]
+      : [],
+  );
+
+  const emailStudents = students.map((student) => ({
+    name: student.studentName,
+    age: student.studentAge,
+    sessions:
+      (formData as RegistrationOrderFormData).sessionSummaries?.filter(Boolean) ??
+      (student.sessionIds ?? []).map((id) => id.slice(0, 8)),
+    note: student.note?.trim() || "—",
+  }));
+
+  const totalSessions = students.reduce(
+    (sum, student) => sum + (student.sessionIds?.length ?? 0),
+    0,
+  );
 
   return {
     courseTitle: course.title,
@@ -28,14 +57,19 @@ function buildEmailData(
     email: formData.email,
     phone: formData.phone,
     sessionDate: multiSession
-      ? formData.sessionSummaries?.join("、") ?? "—"
+      ? sessionSummaries.join("、") || `共 ${totalSessions} 堂`
       : formatSessionDate(course.sessionDate),
     sessionTime: multiSession
-      ? `共 ${formData.sessionIds?.length ?? 0} 堂`
+      ? `共 ${students.length} 位學生`
       : course.sessionTime || "—",
     enrollmentLabel: `${enrollmentCount}/${course.capacity}`,
-    note: formData.note?.trim() || "—",
+    note:
+      ("parentNote" in formData ? formData.parentNote?.trim() : undefined) ||
+      ("note" in formData ? formData.note?.trim() : undefined) ||
+      "—",
     registeredAt: formatDateTime(new Date().toISOString()),
+    studentCount: students.length,
+    students: emailStudents,
   };
 }
 

@@ -1,39 +1,36 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import {
   deleteRegistration,
-  updateRegistration,
+  updateOrderRegistration,
 } from "@/lib/actions/admin/registrations";
-import {
-  formatCourseLabel,
-  formatDateTime,
-} from "@/lib/admin/format";
-import type { AdminRegistration } from "@/lib/admin/types";
+import { formatCourseLabel, formatDateTime } from "@/lib/admin/format";
+import type { AdminOrderRegistration } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
 import { AdminSearchBar } from "./AdminSearchBar";
 import { RegistrationEditModal } from "./RegistrationEditModal";
 import { Toast } from "@/components/ui/Toast";
 
-const STATUS_LABELS: Record<AdminRegistration["status"], string> = {
+const STATUS_LABELS: Record<AdminOrderRegistration["status"], string> = {
   pending: "待付款",
   paid: "已付款",
   cancelled: "已取消",
 };
 
-const STATUS_STYLES: Record<AdminRegistration["status"], string> = {
+const STATUS_STYLES: Record<AdminOrderRegistration["status"], string> = {
   pending: "bg-amber-50 text-amber-700",
   paid: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-surface text-muted",
 };
 
-type SortKey = "created_at" | "sessionDate" | "className";
+type SortKey = "created_at" | "studentCount";
 type SortDirection = "asc" | "desc";
 
 type RegistrationTableProps = {
-  registrations: AdminRegistration[];
+  registrations: AdminOrderRegistration[];
   courses: Course[];
   canMutate: boolean;
 };
@@ -65,9 +62,9 @@ function SortButton({
       {label}
       {active ? (
         direction === "asc" ? (
-          <ArrowUp className="h-3.5 w-3.5" />
+          <ChevronDown className="h-3.5 w-3.5 rotate-180" />
         ) : (
-          <ArrowDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-3.5 w-3.5" />
         )
       ) : null}
     </button>
@@ -82,7 +79,8 @@ export function RegistrationTable({
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [editing, setEditing] = useState<AdminRegistration | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<AdminOrderRegistration | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -97,25 +95,37 @@ export function RegistrationTable({
     setSortDirection(key === "created_at" ? "desc" : "asc");
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     const matched = keyword
       ? registrations.filter((item) =>
           [
             item.name,
-            item.student_name,
             item.email,
             item.phone,
             item.courseTitle,
-            item.sessionScheduleText,
-            item.sessionDateLabel,
-            item.sessionDate,
-            item.sessionTime,
-            item.className,
-            ...item.sessions.map(
-              (session) =>
-                `${session.scheduleLine} ${session.compactLine} ${session.className}`,
-            ),
+            String(item.studentCount),
+            ...item.students.flatMap((student) => [
+              student.student_name,
+              student.student_age,
+              student.note ?? "",
+              ...student.sessions.map(
+                (session) =>
+                  `${session.scheduleLine} ${session.compactLine} ${session.className}`,
+              ),
+            ]),
           ].some((value) => value.toLowerCase().includes(keyword)),
         )
       : registrations;
@@ -123,10 +133,8 @@ export function RegistrationTable({
     return [...matched].sort((a, b) => {
       let compare = 0;
 
-      if (sortKey === "sessionDate") {
-        compare = a.sessionDate.localeCompare(b.sessionDate);
-      } else if (sortKey === "className") {
-        compare = a.className.localeCompare(b.className, "zh-Hant");
+      if (sortKey === "studentCount") {
+        compare = a.studentCount - b.studentCount;
       } else {
         compare =
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -140,17 +148,14 @@ export function RegistrationTable({
     setToast({ title, message });
   };
 
-  const handleDelete = (item: AdminRegistration) => {
+  const handleDelete = (item: AdminOrderRegistration) => {
     if (!canMutate) {
       showToast("無法刪除", "請確認已登入管理員");
       return;
     }
 
-    const sessionCount = item.sessions.length;
     const confirmed = window.confirm(
-      sessionCount > 1
-        ? `確定要刪除「${item.name}」的 ${sessionCount} 堂報名資料嗎？此操作無法復原。`
-        : `確定要刪除「${item.name}」的報名資料嗎？此操作無法復原。`,
+      `確定要刪除「${item.name}」的整筆訂單（共 ${item.studentCount} 位學生）嗎？此操作無法復原。`,
     );
     if (!confirmed) return;
 
@@ -166,7 +171,8 @@ export function RegistrationTable({
   };
 
   const handleSave = async (
-    updated: AdminRegistration,
+    updated: AdminOrderRegistration,
+    students: AdminOrderRegistration["students"],
   ): Promise<{ success: boolean; error?: string }> => {
     if (!canMutate) {
       return {
@@ -175,16 +181,26 @@ export function RegistrationTable({
       };
     }
 
-    const result = await updateRegistration({
-      ids: updated.registrationIds,
+    const result = await updateOrderRegistration({
+      orderId: updated.order_id,
+      registrationIds: updated.registrationIds,
       courseId: updated.course_id,
       name: updated.name,
       phone: updated.phone,
       email: updated.email,
-      studentName: updated.student_name,
-      studentAge: updated.student_age,
-      isFirstTime: updated.is_first_time,
-      note: updated.note ?? "",
+      parentNote: updated.parent_note ?? "",
+      students: students.map((student) => ({
+        id: student.id.startsWith("legacy:") ? undefined : student.id,
+        studentName: student.student_name,
+        studentAge: student.student_age,
+        gender: student.gender ?? "",
+        isFirstTime: student.is_first_time,
+        note: student.note ?? "",
+        sessionIds: student.sessions
+          .map((session) => session.sessionId)
+          .filter((value): value is string => Boolean(value)),
+        registrationIds: student.registrationIds,
+      })),
     });
 
     if (!result.success) {
@@ -204,7 +220,7 @@ export function RegistrationTable({
           value={query}
           onChange={setQuery}
           resultCount={filtered.length}
-          placeholder="搜尋姓名、日期、班別、時間…"
+          placeholder="搜尋家長、學生、課程、日期…"
         />
 
         <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
@@ -213,23 +229,22 @@ export function RegistrationTable({
               <thead className="border-b border-border bg-surface">
                 <tr>
                   {[
-                    { label: "姓名", sortable: false },
+                    { label: "", sortable: false },
+                    { label: "家長姓名", sortable: false },
                     { label: "電話", sortable: false },
                     { label: "Email", sortable: false },
                     { label: "課程", sortable: false },
                     { label: "付款狀態", sortable: false },
                     {
-                      label: "上課日期／時段",
+                      label: "學生數",
                       sortable: true,
-                      key: "sessionDate" as const,
+                      key: "studentCount" as const,
                     },
-                    { label: "班別", sortable: true, key: "className" as const },
-                    { label: "人數", sortable: false },
                     { label: "建立時間", sortable: true, key: "created_at" as const },
                     { label: "操作", sortable: false },
                   ].map((column) => (
                     <th
-                      key={column.label}
+                      key={column.label || "expand"}
                       className="whitespace-nowrap px-4 py-4 font-medium text-muted first:pl-6 last:pr-6"
                     >
                       {column.sortable && column.key ? (
@@ -250,75 +265,135 @@ export function RegistrationTable({
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={9}
                       className="px-6 py-16 text-center text-muted"
                     >
                       {query ? "找不到符合的報名資料" : "目前尚無報名資料"}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((item) => (
-                    <tr key={item.id} className="transition hover:bg-surface/60">
-                      <td className="whitespace-nowrap px-4 py-4 pl-6 font-medium text-foreground">
-                        <div>{item.name}</div>
-                        <div className="mt-1 text-xs text-muted">
-                          學生：{item.student_name}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {item.phone}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {item.email}
-                      </td>
-                      <td className="min-w-[180px] px-4 py-4 text-foreground">
-                        {formatCourseLabel(item.courseTitle, item.courseCategory)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[item.status]}`}
-                        >
-                          {STATUS_LABELS[item.status]}
-                        </span>
-                      </td>
-                      <td className="min-w-[220px] whitespace-pre-line px-4 py-4 text-foreground">
-                        {item.sessionScheduleText || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        {item.className}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                        <span className="inline-flex rounded-full bg-gold-soft px-2.5 py-1 text-xs font-medium text-gold">
-                          {item.slotEnrollment}/{item.maxCapacity}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-muted">
-                        {formatDateTime(item.created_at)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 pr-6">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditing(item)}
-                            disabled={isPending}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold disabled:opacity-50"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            編輯
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item)}
-                            disabled={isPending}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            刪除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filtered.map((item) => {
+                    const expanded = expandedIds.has(item.id);
+
+                    return (
+                      <Fragment key={item.id}>
+                        <tr className="transition hover:bg-surface/60">
+                          <td className="whitespace-nowrap px-4 py-4 pl-6">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(item.id)}
+                              className="rounded-full border border-border p-1.5 text-muted transition hover:text-foreground"
+                              aria-label={expanded ? "收合" : "展開"}
+                            >
+                              {expanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 font-medium text-foreground">
+                            {item.name}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                            {item.phone}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                            {item.email}
+                          </td>
+                          <td className="min-w-[180px] px-4 py-4 text-foreground">
+                            {formatCourseLabel(
+                              item.courseTitle,
+                              item.courseCategory,
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[item.status]}`}
+                            >
+                              {STATUS_LABELS[item.status]}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                            共 {item.studentCount} 位學生
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-muted">
+                            {formatDateTime(item.created_at)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-4 pr-6">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditing(item)}
+                                disabled={isPending}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold disabled:opacity-50"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                編輯
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item)}
+                                disabled={isPending}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                刪除
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expanded ? (
+                          <tr className="bg-surface/40">
+                            <td colSpan={9} className="px-6 py-5">
+                              <div className="space-y-4">
+                                {item.students.map((student, index) => (
+                                  <div
+                                    key={student.id}
+                                    className="rounded-2xl border border-border bg-white px-5 py-4"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                      <p className="font-medium text-foreground">
+                                        學生 {index + 1}：{student.student_name}
+                                      </p>
+                                      <p className="text-sm text-muted">
+                                        {student.student_age} 歲
+                                        {student.is_first_time ? " · 第一次參加" : ""}
+                                      </p>
+                                    </div>
+                                    {student.note ? (
+                                      <p className="mt-2 text-sm text-muted">
+                                        備註：{student.note}
+                                      </p>
+                                    ) : null}
+                                    <div className="mt-3">
+                                      <p className="text-sm font-medium text-foreground">
+                                        已報：
+                                      </p>
+                                      <ul className="mt-2 space-y-1 text-sm text-foreground">
+                                        {student.sessions.length > 0 ? (
+                                          student.sessions.map((session) => (
+                                            <li key={session.registrationId}>
+                                              ✓ {session.compactLine}
+                                              {session.className !== "—"
+                                                ? ` · ${session.className}`
+                                                : ""}
+                                            </li>
+                                          ))
+                                        ) : (
+                                          <li className="text-muted">—</li>
+                                        )}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>

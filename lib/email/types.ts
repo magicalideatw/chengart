@@ -1,3 +1,10 @@
+export type RegistrationEmailStudent = {
+  name: string;
+  age: string;
+  sessions: string[];
+  note: string;
+};
+
 export type RegistrationEmailData = {
   courseTitle: string;
   name: string;
@@ -8,4 +15,6 @@ export type RegistrationEmailData = {
   enrollmentLabel: string;
   note: string;
   registeredAt: string;
+  studentCount: number;
+  students: RegistrationEmailStudent[];
 };

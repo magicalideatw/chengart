@@ -9,7 +9,9 @@ import {
 import { validateSessionSelection } from "@/lib/registration/queries";
 import {
   getSessionIdsFromFormData,
+  normalizeStudentsFromFormData,
   usesMultiSessionRegistration,
+  type OrderStudentInput,
   type RegistrationOrderFormData,
 } from "@/lib/registration/types";
 import { createPaymentClient, isServiceClientConfigured } from "@/lib/supabase";
@@ -23,36 +25,87 @@ type InsertPaidRegistrationResult =
   | { success: true; id: string }
   | { success: false; error: string };
 
-type FulfillMultiSessionResult =
+type InsertStudentResult =
+  | { success: true; id: string }
+  | { success: false; error: string };
+
+type FulfillStudentsResult =
   | { success: true; registrationIds: string[] }
   | { success: false; error: string; registrationIds: string[] };
 
-async function insertPaidRegistration(
+type ParentContact = {
+  name: string;
+  phone: string;
+  email: string;
+  parentNote?: string | null;
+};
+
+async function insertStudent(
   orderId: string,
-  courseId: string,
-  formData: RegistrationOrderFormData,
-  courseTitle: string,
-  sessionDate: string,
-  sessionTime: string,
-  sessionId?: string | null,
-): Promise<InsertPaidRegistrationResult> {
+  student: OrderStudentInput,
+  sortOrder: number,
+): Promise<InsertStudentResult> {
+  const supabase = createPaymentClient();
+
+  const payload: Database["public"]["Tables"]["students"]["Insert"] = {
+    order_id: orderId,
+    student_name: student.studentName,
+    student_age: student.studentAge,
+    gender: student.gender?.trim() || null,
+    is_first_time: student.isFirstTime === "yes",
+    note: student.note?.trim() || null,
+    sort_order: sortOrder,
+  };
+
+  const { data, error } = await supabase
+    .from("students")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("Student insert failed", {
+      code: error?.code,
+      message: error?.message,
+      payload,
+      usingServiceRole: isServiceClientConfigured(),
+    });
+    return { success: false, error: "建立學生資料失敗" };
+  }
+
+  console.log("student created", { id: data.id, name: student.studentName });
+  return { success: true, id: data.id };
+}
+
+async function insertPaidRegistration(input: {
+  orderId: string;
+  courseId: string;
+  studentId: string | null;
+  parent: ParentContact;
+  student: OrderStudentInput;
+  courseTitle: string;
+  sessionDate: string;
+  sessionTime: string;
+  sessionId?: string | null;
+}): Promise<InsertPaidRegistrationResult> {
   const supabase = createPaymentClient();
 
   const newPayload: Database["public"]["Tables"]["registrations"]["Insert"] = {
-    course_id: courseId,
-    order_id: orderId,
+    course_id: input.courseId,
+    order_id: input.orderId,
+    student_id: input.studentId,
     status: "paid",
-    name: formData.name,
-    phone: formData.phone,
-    email: formData.email,
-    student_name: formData.studentName,
-    student_age: formData.studentAge,
-    is_first_time: formData.isFirstTime === "yes",
-    note: formData.note || null,
-    ...(sessionId ? { session_id: sessionId } : {}),
+    name: input.parent.name,
+    phone: input.parent.phone,
+    email: input.parent.email,
+    student_name: input.student.studentName,
+    student_age: input.student.studentAge,
+    is_first_time: input.student.isFirstTime === "yes",
+    note: input.student.note?.trim() || input.parent.parentNote || null,
+    ...(input.sessionId ? { session_id: input.sessionId } : {}),
   };
 
-  console.log("creating registration", sessionId ?? "(legacy)");
+  console.log("creating registration", input.sessionId ?? "(legacy)");
 
   const { data, error } = await supabase
     .from("registrations")
@@ -61,11 +114,15 @@ async function insertPaidRegistration(
     .single();
 
   if (!error && data) {
-    console.log("registration created", { id: data.id, sessionId: sessionId ?? null });
+    console.log("registration created", {
+      id: data.id,
+      sessionId: input.sessionId ?? null,
+      studentId: input.studentId,
+    });
     return { success: true, id: data.id };
   }
 
-  if (sessionId) {
+  if (input.sessionId || input.studentId) {
     if (error?.message.includes("CLASS_FULL")) {
       return { success: false, error: "此上課日期已額滿" };
     }
@@ -75,8 +132,6 @@ async function insertPaidRegistration(
     console.error("Registration insert failed", {
       code: error?.code,
       message: error?.message,
-      details: error?.details,
-      hint: error?.hint,
       payload: newPayload,
       usingServiceRole: isServiceClientConfigured(),
     });
@@ -87,29 +142,22 @@ async function insertPaidRegistration(
     if (error?.message.includes("CLASS_FULL")) {
       return { success: false, error: "此課程已額滿" };
     }
-    console.error("Registration insert failed", {
-      code: error?.code,
-      message: error?.message,
-      details: error?.details,
-      hint: error?.hint,
-      payload: newPayload,
-    });
     return { success: false, error: "建立報名紀錄失敗" };
   }
 
   const legacyPayload = {
-    course_slug: courseId,
-    session_date: sessionDate || "2099-01-01",
+    course_slug: input.courseId,
+    session_date: input.sessionDate || "2099-01-01",
     class_id: "A",
-    class_name: courseTitle,
-    class_time: sessionTime || "—",
-    name: formData.name,
-    phone: formData.phone,
-    email: formData.email,
-    student_name: formData.studentName,
-    student_age: formData.studentAge,
-    is_first_time: formData.isFirstTime === "yes",
-    note: formData.note || null,
+    class_name: input.courseTitle,
+    class_time: input.sessionTime || "—",
+    name: input.parent.name,
+    phone: input.parent.phone,
+    email: input.parent.email,
+    student_name: input.student.studentName,
+    student_age: input.student.studentAge,
+    is_first_time: input.student.isFirstTime === "yes",
+    note: input.student.note?.trim() || input.parent.parentNote || null,
   };
 
   const legacyResult = await supabase
@@ -118,24 +166,10 @@ async function insertPaidRegistration(
     .select("id")
     .single();
 
-  if (legacyResult.error) {
-    if (legacyResult.error.message.includes("CLASS_FULL")) {
-      return { success: false, error: "此課程已額滿" };
-    }
-    console.error("Legacy registration insert failed", {
-      code: legacyResult.error.code,
-      message: legacyResult.error.message,
-      details: legacyResult.error.details,
-      hint: legacyResult.error.hint,
-    });
+  if (legacyResult.error || !legacyResult.data?.id) {
     return { success: false, error: "建立報名紀錄失敗" };
   }
 
-  if (!legacyResult.data?.id) {
-    return { success: false, error: "建立報名紀錄失敗" };
-  }
-
-  console.log("legacy registration created", { id: legacyResult.data.id });
   return { success: true, id: legacyResult.data.id };
 }
 
@@ -178,79 +212,137 @@ async function decrementSessionCapacity(sessionId: string): Promise<boolean> {
   return true;
 }
 
-async function fulfillMultiSessionOrder(
-  orderId: string,
-  courseId: string,
-  formData: RegistrationOrderFormData,
-): Promise<FulfillMultiSessionResult> {
-  const sessionIds = getSessionIdsFromFormData(formData);
+async function fulfillStudentsOrder(input: {
+  orderId: string;
+  courseId: string;
+  courseTitle: string;
+  sessionDate: string;
+  sessionTime: string;
+  formData: RegistrationOrderFormData;
+  usesSessions: boolean;
+}): Promise<FulfillStudentsResult> {
+  const students = normalizeStudentsFromFormData(input.formData);
+  const sessionIds = getSessionIdsFromFormData(input.formData);
   console.log("sessionIds", sessionIds);
+  console.log("students", students.length);
 
-  if (sessionIds.length === 0) {
-    return { success: false, error: "訂單缺少上課日期", registrationIds: [] };
+  if (students.length === 0) {
+    return { success: false, error: "訂單缺少學生資料", registrationIds: [] };
   }
 
-  const validation = await validateSessionSelection(courseId, sessionIds);
-  if (!validation.success) {
-    console.error("Session validation failed during fulfill:", validation.error);
-    return { success: false, error: validation.error, registrationIds: [] };
-  }
+  const parent: ParentContact = {
+    name: input.formData.name,
+    phone: input.formData.phone,
+    email: input.formData.email,
+    parentNote: input.formData.parentNote ?? input.formData.note ?? null,
+  };
 
-  const sessionById = new Map(
-    validation.data.sessions.map((session) => [session.id, session]),
-  );
+  let sessionById = new Map<string, { date: string; startTime: string; endTime: string }>();
+
+  if (input.usesSessions) {
+    if (sessionIds.length === 0) {
+      return { success: false, error: "訂單缺少上課日期", registrationIds: [] };
+    }
+
+    const validation = await validateSessionSelection(input.courseId, sessionIds);
+    if (!validation.success) {
+      return { success: false, error: validation.error, registrationIds: [] };
+    }
+
+    sessionById = new Map(
+      validation.data.sessions.map((session) => [
+        session.id,
+        {
+          date: session.date,
+          startTime: session.startTime,
+          endTime: session.endTime,
+        },
+      ]),
+    );
+  }
 
   const registrationIds: string[] = [];
 
-  for (const sessionId of sessionIds) {
-    const session = sessionById.get(sessionId);
-    if (!session) {
-      console.error("Session missing during fulfill:", sessionId);
+  for (const [index, student] of students.entries()) {
+    const studentRow = await insertStudent(input.orderId, student, index);
+    if (!studentRow.success) {
       return {
         success: false,
-        error: "部分上課日期不存在，請聯絡管理員",
+        error: studentRow.error,
         registrationIds,
       };
     }
 
-    const registration = await insertPaidRegistration(
-      orderId,
-      courseId,
-      formData,
-      "",
-      session.date,
-      `${session.startTime}~${session.endTime}`,
-      sessionId,
-    );
+    const studentSessionIds = student.sessionIds ?? [];
 
-    if (!registration.success) {
-      console.error("Multi-session registration insert stopped", {
-        sessionId,
-        error: registration.error,
-        createdCount: registrationIds.length,
+    if (input.usesSessions) {
+      for (const sessionId of studentSessionIds) {
+        const session = sessionById.get(sessionId);
+        if (!session) {
+          return {
+            success: false,
+            error: "部分上課日期不存在，請聯絡管理員",
+            registrationIds,
+          };
+        }
+
+        const registration = await insertPaidRegistration({
+          orderId: input.orderId,
+          courseId: input.courseId,
+          studentId: studentRow.id,
+          parent,
+          student,
+          courseTitle: input.courseTitle,
+          sessionDate: session.date,
+          sessionTime: `${session.startTime}~${session.endTime}`,
+          sessionId,
+        });
+
+        if (!registration.success) {
+          return {
+            success: false,
+            error: registration.error,
+            registrationIds,
+          };
+        }
+
+        registrationIds.push(registration.id);
+
+        const decremented = await decrementSessionCapacity(sessionId);
+        if (!decremented) {
+          return {
+            success: false,
+            error: "上課日期名額已變動，請聯絡管理員",
+            registrationIds,
+          };
+        }
+      }
+    } else {
+      const registration = await insertPaidRegistration({
+        orderId: input.orderId,
+        courseId: input.courseId,
+        studentId: studentRow.id,
+        parent,
+        student,
+        courseTitle: input.courseTitle,
+        sessionDate: input.sessionDate,
+        sessionTime: input.sessionTime,
       });
-      return {
-        success: false,
-        error: registration.error,
-        registrationIds,
-      };
-    }
 
-    registrationIds.push(registration.id);
+      if (!registration.success) {
+        return {
+          success: false,
+          error: registration.error,
+          registrationIds,
+        };
+      }
 
-    const decremented = await decrementSessionCapacity(sessionId);
-    if (!decremented) {
-      console.error("Session capacity decrement failed", { sessionId });
-      return {
-        success: false,
-        error: "上課日期名額已變動，請聯絡管理員",
-        registrationIds,
-      };
+      registrationIds.push(registration.id);
     }
   }
 
-  console.log("multi-session registrations created", {
-    orderId,
+  console.log("order registrations created", {
+    orderId: input.orderId,
     count: registrationIds.length,
     registrationIds,
   });
@@ -288,49 +380,32 @@ export async function fulfillPaidOrder(input: {
   }
 
   const formData = order.form_data as RegistrationOrderFormData;
-  let registrationId: string | null = null;
+  const usesSessions = usesMultiSessionRegistration(formData);
 
   console.log("fulfillPaidOrder", {
     orderId: order.id,
     merchantTradeNo: input.merchantTradeNo,
-    usesMultiSession: usesMultiSessionRegistration(formData),
-    formSessionIds: formData.sessionIds,
+    usesSessions,
+    studentCount: normalizeStudentsFromFormData(formData).length,
   });
 
-  if (usesMultiSessionRegistration(formData)) {
-    const result = await fulfillMultiSessionOrder(order.id, order.course_id, formData);
+  const result = await fulfillStudentsOrder({
+    orderId: order.id,
+    courseId: order.course_id,
+    courseTitle: course.title,
+    sessionDate: course.sessionDate,
+    sessionTime: course.sessionTime,
+    formData,
+    usesSessions,
+  });
 
-    if (!result.success) {
-      return {
-        success: false,
-        error: result.error,
-      };
-    }
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
 
-    registrationId = result.registrationIds[0] ?? null;
-
-    if (!registrationId) {
-      return { success: false, error: "建立報名失敗" };
-    }
-  } else {
-    if (course.isFull) {
-      return { success: false, error: "此課程已額滿" };
-    }
-
-    const registration = await insertPaidRegistration(
-      order.id,
-      order.course_id,
-      formData,
-      course.title,
-      course.sessionDate,
-      course.sessionTime,
-    );
-
-    if (!registration.success) {
-      return { success: false, error: registration.error ?? "建立報名失敗" };
-    }
-
-    registrationId = registration.id;
+  const registrationId = result.registrationIds[0] ?? null;
+  if (!registrationId) {
+    return { success: false, error: "建立報名失敗" };
   }
 
   const paidAt = new Date().toISOString();
@@ -350,6 +425,7 @@ export async function fulfillPaidOrder(input: {
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/orders");
+  revalidatePath("/admin/registrations");
 
   try {
     const enrollmentCount = await getEnrollmentCount(course.id);

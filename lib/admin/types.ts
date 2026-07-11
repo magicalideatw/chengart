@@ -11,32 +11,60 @@ export type AdminRegistrationSession = {
   compactLine: string;
 };
 
-export type AdminRegistration = {
+export type AdminOrderStudent = {
   id: string;
+  student_name: string;
+  student_age: string;
+  gender: string | null;
+  is_first_time: boolean;
+  note: string | null;
+  sessions: AdminRegistrationSession[];
+  registrationIds: string[];
+};
+
+export type AdminOrderRegistration = {
+  id: string;
+  order_id: string | null;
   registrationIds: string[];
   course_id: string;
-  order_id: string | null;
   status: RegistrationPaymentStatus;
   name: string;
   phone: string;
   email: string;
-  student_name: string;
-  student_age: string;
-  is_first_time: boolean;
-  note: string | null;
+  parent_note: string | null;
   created_at: string;
   courseTitle: string;
   courseCategory: string;
-  sessions: AdminRegistrationSession[];
-  sessionScheduleText: string;
-  sessionDate: string;
-  sessionDateLabel: string;
-  sessionTime: string;
-  className: string;
+  students: AdminOrderStudent[];
+  studentCount: number;
   slotEnrollment: number;
   maxCapacity: number;
 };
 
+/** @deprecated use AdminOrderRegistration */
+export type AdminRegistration = AdminOrderRegistration;
+
+export type AdminOrderUpdate = {
+  orderId: string | null;
+  registrationIds: string[];
+  courseId: string;
+  name: string;
+  phone: string;
+  email: string;
+  parentNote: string;
+  students: Array<{
+    id?: string;
+    studentName: string;
+    studentAge: string;
+    gender: string;
+    isFirstTime: boolean;
+    note: string;
+    sessionIds: string[];
+    registrationIds: string[];
+  }>;
+};
+
+/** @deprecated */
 export type AdminRegistrationUpdate = {
   ids: string[];
   courseId: string;

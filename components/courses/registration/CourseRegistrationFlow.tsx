@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,127 +8,66 @@ import { motion } from "framer-motion";
 import { createRegistrationOrder } from "@/lib/actions/payment";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
+import {
+  buildSessionPriceMap,
+  calculateOrderTotal,
+} from "@/lib/registration/pricing";
 import type { CourseRegistrationPlan } from "@/lib/registration/queries";
 import {
-  registrationFormSchema,
-  type RegistrationFormValues,
+  defaultParentFormValues,
+  parentFormSchema,
+  type ParentFormValues,
 } from "@/lib/validation/registration-schema";
 import { CourseRegistrationHero } from "./CourseRegistrationHero";
 import { StepIndicator, StepHeader } from "./StepIndicator";
-import { RegistrationFormStep } from "./RegistrationFormStep";
+import { ParentStudentFormStep } from "./ParentStudentFormStep";
 import { ConfirmStep } from "./ConfirmStep";
-import { SessionSelectionPanel } from "./SessionSelectionPanel";
 
 type CourseRegistrationFlowProps = {
   course: CourseWithEnrollment;
   plan: CourseRegistrationPlan;
 };
 
-const defaultValues: RegistrationFormValues = {
-  name: "",
-  phone: "",
-  email: "",
-  studentName: "",
-  studentAge: "",
-  isFirstTime: "yes",
-  note: "",
-};
-
-const legacySteps = ["填寫資料", "確認並付款"];
-const sessionSteps = ["選擇上課日期", "填寫資料", "確認並付款"];
+const steps = ["填寫報名資料", "確認並付款"];
 
 export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowProps) {
   const formRef = useRef<HTMLDivElement>(null);
-  const selectedSessionIdsRef = useRef<string[]>([]);
   const isSubmittingOrderRef = useRef(false);
-  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
-  const [showForm, setShowForm] = useState(!plan.usesSessions);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const usesSessions = plan.usesSessions;
-  const steps = usesSessions ? sessionSteps : legacySteps;
 
   const canRegister = usesSessions
     ? course.isOpen && plan.hasSelectableSessions
     : course.isOpen && !course.isFull;
 
-  const methods = useForm<RegistrationFormValues>({
-    resolver: zodResolver(registrationFormSchema),
-    defaultValues,
+  const methods = useForm<ParentFormValues>({
+    resolver: zodResolver(parentFormSchema),
+    defaultValues: defaultParentFormValues,
     mode: "onTouched",
   });
 
-  const sessionPriceMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const item of plan.classes) {
-      for (const session of item.sessions) {
-        map.set(session.id, item.unitPrice);
-      }
-    }
-    return map;
-  }, [plan.classes]);
+  const sessionPriceMap = useMemo(
+    () => buildSessionPriceMap(plan),
+    [plan],
+  );
+
+  const watchedStudents = methods.watch("students");
 
   const totalAmount = useMemo(
     () =>
-      selectedSessionIds.reduce(
-        (sum, sessionId) => sum + (sessionPriceMap.get(sessionId) ?? plan.defaultUnitPrice),
-        0,
-      ),
-    [selectedSessionIds, sessionPriceMap, plan.defaultUnitPrice],
+      calculateOrderTotal({
+        usesSessions,
+        courseFee: course.fee,
+        students: watchedStudents ?? [],
+        sessionPriceMap,
+        defaultUnitPrice: plan.defaultUnitPrice,
+      }),
+    [usesSessions, course.fee, watchedStudents, sessionPriceMap, plan.defaultUnitPrice],
   );
-
-  const unitPriceLabel = useMemo(() => {
-    if (selectedSessionIds.length === 0) {
-      const prices = [...new Set(plan.classes.map((item) => item.unitPrice))];
-      return prices.length === 1 ? formatFee(prices[0]) : "依班別計價";
-    }
-
-    const prices = selectedSessionIds.map(
-      (sessionId) => sessionPriceMap.get(sessionId) ?? plan.defaultUnitPrice,
-    );
-    const uniquePrices = [...new Set(prices)];
-    return uniquePrices.length === 1 ? formatFee(uniquePrices[0]) : "依班別計價";
-  }, [selectedSessionIds, sessionPriceMap, plan.classes, plan.defaultUnitPrice]);
-
-  const selectedSessionSummaries = useMemo(() => {
-    return plan.classes.flatMap((item) =>
-      item.sessions
-        .filter((session) => selectedSessionIds.includes(session.id))
-        .map(
-          (session) =>
-            `${item.class.name} ${session.date} ${session.startTime}~${session.endTime}`,
-        ),
-    );
-  }, [plan.classes, selectedSessionIds]);
-
-  const scrollToForm = useCallback(() => {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
-
-  const toggleSession = useCallback((sessionId: string) => {
-    setSelectedSessionIds((current) => {
-      const next = current.includes(sessionId)
-        ? current.filter((id) => id !== sessionId)
-        : [...current, sessionId];
-      selectedSessionIdsRef.current = next;
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    selectedSessionIdsRef.current = selectedSessionIds;
-  }, [selectedSessionIds]);
-
-  const handleStartRegistration = () => {
-    if (usesSessions && selectedSessionIds.length === 0) return;
-    setShowForm(true);
-    setShowConfirm(false);
-    setErrorMessage(null);
-    setTimeout(scrollToForm, 100);
-  };
 
   const handleNextFromForm = methods.handleSubmit(() => {
     setShowConfirm(true);
@@ -145,25 +84,14 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     if (isPending || isSubmittingOrderRef.current) return;
 
     setErrorMessage(null);
-
-    const sessionIds = usesSessions ? [...selectedSessionIdsRef.current] : [];
-
-    if (usesSessions && sessionIds.length === 0) {
-      setErrorMessage("請至少選擇一堂上課日期");
-      return;
-    }
-
     isSubmittingOrderRef.current = true;
 
     startTransition(async () => {
       try {
+        const formData = methods.getValues();
         const result = await createRegistrationOrder({
           courseId: course.id,
-          formData: {
-            ...methods.getValues(),
-            sessionIds: usesSessions ? sessionIds : undefined,
-          },
-          sessionIds: usesSessions ? sessionIds : undefined,
+          formData,
         });
 
         if (result.success) {
@@ -179,36 +107,20 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
   };
 
   const formData = methods.watch();
-  const currentStep = showConfirm ? steps.length : showForm ? (usesSessions ? 2 : 1) : 1;
+  const currentStep = showConfirm ? 2 : 1;
 
   return (
     <>
       <CourseRegistrationHero
         course={course}
         plan={plan}
-        onRegister={usesSessions ? handleStartRegistration : scrollToForm}
+        onRegister={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
         canRegister={canRegister}
-        selectedCount={selectedSessionIds.length}
       />
 
-      {usesSessions && canRegister && (
-        <section className="mx-auto max-w-5xl px-5 py-12 md:px-8">
-          <StepHeader step={1} title="選擇上課日期" />
-          <SessionSelectionPanel
-            classes={plan.classes}
-            selectedSessionIds={selectedSessionIds}
-            onToggleSession={toggleSession}
-            unitPriceLabel={unitPriceLabel}
-            totalAmount={totalAmount}
-            onRegister={handleStartRegistration}
-            canRegister={canRegister}
-          />
-        </section>
-      )}
-
-      {canRegister && showForm && (
+      {canRegister && (
         <div ref={formRef} id="register" className="scroll-mt-20">
-          <section className="mx-auto max-w-3xl px-5 py-16 sm:py-24 md:px-8">
+          <section className="mx-auto max-w-4xl px-5 py-16 sm:py-24 md:px-8">
             <StepIndicator steps={steps} currentStep={currentStep} />
 
             <FormProvider {...methods}>
@@ -219,11 +131,12 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
                   >
-                    <StepHeader
-                      step={usesSessions ? 2 : 1}
-                      title="填寫資料"
+                    <StepHeader step={1} title="填寫報名資料" />
+                    <ParentStudentFormStep
+                      usesSessions={usesSessions}
+                      classes={plan.classes}
+                      defaultUnitPrice={plan.defaultUnitPrice}
                     />
-                    <RegistrationFormStep />
                     <button
                       type="button"
                       onClick={handleNextFromForm}
@@ -242,21 +155,16 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                     transition={{ duration: 0.4 }}
                     className="scroll-mt-24"
                   >
-                    <StepHeader step={steps.length} title="確認並付款" />
+                    <StepHeader step={2} title="確認並付款" />
                     <ConfirmStep
+                      courseTitle={course.title}
                       dateLabel={
-                        usesSessions
-                          ? undefined
-                          : formatSessionDate(course.sessionDate)
+                        usesSessions ? undefined : formatSessionDate(course.sessionDate)
                       }
-                      className={course.title}
                       classTime={usesSessions ? undefined : course.sessionTime}
-                      feeLabel={
-                        usesSessions ? formatFee(totalAmount) : formatFee(course.fee)
-                      }
-                      sessionSummaries={
-                        usesSessions ? selectedSessionSummaries : undefined
-                      }
+                      feeLabel={formatFee(totalAmount)}
+                      usesSessions={usesSessions}
+                      classes={plan.classes}
                       formData={formData}
                     />
 

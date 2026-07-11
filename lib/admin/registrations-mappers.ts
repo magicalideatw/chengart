@@ -1,9 +1,11 @@
-import type { AdminRegistration, AdminRegistrationSession } from "@/lib/admin/types";
+import type {
+  AdminOrderRegistration,
+  AdminOrderStudent,
+  AdminRegistrationSession,
+} from "@/lib/admin/types";
 import {
   formatAdminSessionCompactLine,
-  formatAdminSessionDate,
   formatAdminSessionScheduleLine,
-  formatAdminSessionTimeHyphen,
   formatClassLabel,
   parseAdminTimeRange,
   trimAdminTime,
@@ -26,23 +28,47 @@ type JoinedSession = {
   classes: JoinedClass | JoinedClass[] | null;
 };
 
+type JoinedStudent = {
+  id: string;
+  student_name: string;
+  student_age: string;
+  gender: string | null;
+  is_first_time: boolean;
+  note: string | null;
+  sort_order: number;
+};
+
 export type RegistrationJoinRow =
   Database["public"]["Tables"]["registrations"]["Row"] & {
     sessions?: JoinedSession | null;
+    students?: JoinedStudent | JoinedStudent[] | null;
   };
 
 type MappedRegistrationRow = {
   row: RegistrationJoinRow;
-  registration: Omit<
-    AdminRegistration,
-    "sessions" | "sessionScheduleText" | "registrationIds"
-  >;
   session: AdminRegistrationSession;
+  parent: {
+    name: string;
+    phone: string;
+    email: string;
+    course_id: string;
+    order_id: string | null;
+    status: AdminOrderRegistration["status"];
+    created_at: string;
+    note: string | null;
+  };
 };
 
 function normalizeJoinedClass(
   value: JoinedSession["classes"],
 ): JoinedClass | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+function normalizeJoinedStudent(
+  value: RegistrationJoinRow["students"],
+): JoinedStudent | null {
   if (!value) return null;
   return Array.isArray(value) ? value[0] ?? null : value;
 }
@@ -84,7 +110,6 @@ function buildSessionFromRow(
   const legacyDate = course?.sessionDate ?? row.session_date ?? "";
   const legacyTime = course?.sessionTime ?? row.class_time ?? "";
   const { start, end } = parseAdminTimeRange(legacyTime);
-  const className = row.class_name?.trim() || "—";
 
   return {
     registrationId: row.id,
@@ -92,92 +117,88 @@ function buildSessionFromRow(
     date: legacyDate,
     start_time: start,
     end_time: end,
-    className,
+    className: row.class_name?.trim() || "—",
     scheduleLine: legacyDate
       ? formatAdminSessionScheduleLine(legacyDate, start, end)
-      : legacyTime && legacyTime !== "—"
-        ? legacyTime
-        : "—",
+      : legacyTime || "—",
     compactLine: legacyDate
       ? formatAdminSessionCompactLine(legacyDate, start, end)
-      : legacyTime && legacyTime !== "—"
-        ? legacyTime
-        : "—",
+      : legacyTime || "—",
   };
 }
 
-function mapRegistrationBase(
-  row: RegistrationJoinRow,
+function studentKey(row: RegistrationJoinRow): string {
+  const joinedStudent = normalizeJoinedStudent(row.students);
+  if (joinedStudent?.id) return joinedStudent.id;
+  if (row.student_id) return row.student_id;
+  return `legacy:${row.student_name}:${row.student_age}`;
+}
+
+function buildStudentFromGroup(
+  key: string,
+  items: MappedRegistrationRow[],
+): AdminOrderStudent {
+  const first = items[0];
+  const joinedStudent = normalizeJoinedStudent(first.row.students);
+  const sessions = [...items]
+    .sort((a, b) => a.session.date.localeCompare(b.session.date))
+    .map((item) => item.session);
+
+  return {
+    id: joinedStudent?.id ?? key,
+    student_name: joinedStudent?.student_name ?? first.row.student_name,
+    student_age: joinedStudent?.student_age ?? first.row.student_age,
+    gender: joinedStudent?.gender ?? null,
+    is_first_time: joinedStudent?.is_first_time ?? first.row.is_first_time,
+    note: joinedStudent?.note ?? first.row.note,
+    sessions,
+    registrationIds: items.map((item) => item.row.id),
+  };
+}
+
+function mergeOrderGroup(
+  items: MappedRegistrationRow[],
   course: ReturnType<typeof mapCourseRow> | undefined,
   slotEnrollment: number,
-): Omit<
-  AdminRegistration,
-  "sessions" | "sessionScheduleText" | "registrationIds"
-> {
-  const session = buildSessionFromRow(row, course);
+): AdminOrderRegistration {
+  const sorted = [...items].sort(
+    (a, b) =>
+      new Date(a.parent.created_at).getTime() -
+      new Date(b.parent.created_at).getTime(),
+  );
+  const base = sorted[0];
+
+  const studentGroups = new Map<string, MappedRegistrationRow[]>();
+  for (const item of items) {
+    const key = studentKey(item.row);
+    const list = studentGroups.get(key) ?? [];
+    list.push(item);
+    studentGroups.set(key, list);
+  }
+
+  const students = [...studentGroups.values()]
+    .map((group) => buildStudentFromGroup(studentKey(group[0].row), group))
+    .sort((a, b) => a.student_name.localeCompare(b.student_name, "zh-Hant"));
+
+  const registrationIds = items.map((item) => item.row.id);
 
   return {
-    id: row.id,
-    course_id: row.course_id ?? row.course_slug ?? "",
-    order_id: row.order_id ?? null,
-    status: (row.status as AdminRegistration["status"] | undefined) ?? "paid",
-    name: row.name ?? "",
-    phone: row.phone ?? "",
-    email: row.email ?? "",
-    student_name: row.student_name ?? "",
-    student_age: row.student_age ?? "",
-    is_first_time: row.is_first_time ?? false,
-    note: row.note,
-    created_at: row.created_at ?? new Date().toISOString(),
+    id: base.parent.order_id ?? registrationIds[0],
+    order_id: base.parent.order_id,
+    registrationIds,
+    course_id: base.parent.course_id,
+    status: base.parent.status,
+    name: base.parent.name,
+    phone: base.parent.phone,
+    email: base.parent.email,
+    parent_note: base.parent.note,
+    created_at: base.parent.created_at,
     courseTitle: course?.title ?? "未知課程",
     courseCategory: course?.category ?? "",
-    sessionDate: session.date,
-    sessionDateLabel: formatAdminSessionDate(session.date),
-    sessionTime: formatAdminSessionTimeHyphen(session.start_time, session.end_time),
-    className: session.className,
+    students,
+    studentCount: students.length,
     slotEnrollment,
     maxCapacity: course?.capacity ?? DEFAULT_MAX_CAPACITY,
-  };
-}
-
-function uniqueClassNames(sessions: AdminRegistrationSession[]): string {
-  const names = [...new Set(sessions.map((session) => session.className).filter(Boolean))];
-  if (names.length === 0) return "—";
-  return names.join("、");
-}
-
-function mergeRegistrationGroup(items: MappedRegistrationRow[]): AdminRegistration {
-  const sorted = [...items].sort((a, b) => {
-    const dateCompare = a.session.date.localeCompare(b.session.date);
-    if (dateCompare !== 0) return dateCompare;
-
-    return a.session.start_time.localeCompare(b.session.start_time);
-  });
-
-  const base = sorted.reduce((earliest, current) =>
-    new Date(current.registration.created_at).getTime() <
-    new Date(earliest.registration.created_at).getTime()
-      ? current
-      : earliest,
-  ).registration;
-
-  const sessions = sorted.map((item) => item.session);
-  const registrationIds = sorted.map((item) => item.registration.id);
-  const firstSession = sessions[0];
-
-  return {
-    ...base,
-    id: registrationIds[0],
-    registrationIds,
-    sessions,
-    sessionScheduleText: sessions.map((session) => session.scheduleLine).join("\n"),
-    sessionDate: firstSession?.date ?? "",
-    sessionDateLabel: formatAdminSessionDate(firstSession?.date),
-    sessionTime:
-      sessions.length === 1
-        ? formatAdminSessionTimeHyphen(firstSession.start_time, firstSession.end_time)
-        : `${sessions.length} 個時段`,
-    className: uniqueClassNames(sessions),
   };
 }
 
@@ -185,31 +206,43 @@ export function groupAdminRegistrations(
   rows: RegistrationJoinRow[],
   courseMap: Map<string, ReturnType<typeof mapCourseRow>>,
   slotCounts: Record<string, number>,
-): AdminRegistration[] {
+): AdminOrderRegistration[] {
   const mapped = rows.map((row) => {
     const lookupKey = row.course_id ?? row.course_slug ?? "";
     const course = courseMap.get(lookupKey);
-    const registration = mapRegistrationBase(
-      row,
-      course,
-      slotCounts[lookupKey] ?? 0,
-    );
     const session = buildSessionFromRow(row, course);
 
-    return { row, registration, session };
+    return {
+      row,
+      session,
+      parent: {
+        name: row.name ?? "",
+        phone: row.phone ?? "",
+        email: row.email ?? "",
+        course_id: lookupKey,
+        order_id: row.order_id ?? null,
+        status: (row.status as AdminOrderRegistration["status"]) ?? "paid",
+        created_at: row.created_at ?? new Date().toISOString(),
+        note: row.note,
+      },
+    };
   });
 
-  const groups = new Map<string, MappedRegistrationRow[]>();
+  const orderGroups = new Map<string, MappedRegistrationRow[]>();
 
   for (const item of mapped) {
-    const key = item.registration.order_id ?? `single:${item.registration.id}`;
-    const list = groups.get(key) ?? [];
+    const key = item.parent.order_id ?? `single:${item.row.id}`;
+    const list = orderGroups.get(key) ?? [];
     list.push(item);
-    groups.set(key, list);
+    orderGroups.set(key, list);
   }
 
-  return [...groups.values()]
-    .map((items) => mergeRegistrationGroup(items))
+  return [...orderGroups.values()]
+    .map((items) => {
+      const lookupKey = items[0].parent.course_id;
+      const course = courseMap.get(lookupKey);
+      return mergeOrderGroup(items, course, slotCounts[lookupKey] ?? 0);
+    })
     .sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
@@ -228,5 +261,17 @@ export const ADMIN_REGISTRATIONS_SELECT = `
       name,
       weekday
     )
+  ),
+  students (
+    id,
+    student_name,
+    student_age,
+    gender,
+    is_first_time,
+    note,
+    sort_order
   )
 `;
+
+/** Backward-compatible alias */
+export type AdminRegistration = AdminOrderRegistration;

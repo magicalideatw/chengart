@@ -11,7 +11,6 @@ type CourseRegistrationHeroProps = {
   plan: CourseRegistrationPlan;
   onRegister: () => void;
   canRegister: boolean;
-  selectedCount?: number;
 };
 
 export function CourseRegistrationHero({
@@ -19,7 +18,6 @@ export function CourseRegistrationHero({
   plan,
   onRegister,
   canRegister,
-  selectedCount = 0,
 }: CourseRegistrationHeroProps) {
   const usesSessions = plan.usesSessions;
 
@@ -78,15 +76,9 @@ export function CourseRegistrationHero({
           </div>
           {canRegister ? (
             usesSessions ? (
-              selectedCount > 0 ? (
-                <p className="mt-8 text-sm text-white/80">
-                  已選 {selectedCount} 堂，請在下方確認後繼續報名
-                </p>
-              ) : (
-                <p className="mt-8 text-sm text-white/80">
-                  請先選擇要上課的日期
-                </p>
-              )
+              <p className="mt-8 text-sm text-white/80">
+                請填寫家長資料，並為每位學生選擇上課日期
+              </p>
             ) : (
               <button
                 type="button"

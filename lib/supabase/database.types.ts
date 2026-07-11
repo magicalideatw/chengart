@@ -168,11 +168,56 @@ export type Database = {
           },
         ];
       };
+      students: {
+        Row: {
+          id: string;
+          order_id: string;
+          student_name: string;
+          student_age: string;
+          gender: string | null;
+          is_first_time: boolean;
+          note: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          student_name: string;
+          student_age: string;
+          gender?: string | null;
+          is_first_time?: boolean;
+          note?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          student_name?: string;
+          student_age?: string;
+          gender?: string | null;
+          is_first_time?: boolean;
+          note?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "students_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       registrations: {
         Row: {
           id: string;
           course_id: string;
           session_id: string | null;
+          student_id: string | null;
           order_id: string | null;
           status: "pending" | "paid" | "cancelled";
           name: string;
@@ -193,6 +238,7 @@ export type Database = {
           id?: string;
           course_id?: string;
           session_id?: string | null;
+          student_id?: string | null;
           order_id?: string | null;
           status?: "pending" | "paid" | "cancelled";
           course_slug?: string;
@@ -213,6 +259,7 @@ export type Database = {
           id?: string;
           course_id?: string;
           session_id?: string | null;
+          student_id?: string | null;
           order_id?: string | null;
           status?: "pending" | "paid" | "cancelled";
           course_slug?: string;
@@ -249,6 +296,13 @@ export type Database = {
             columns: ["session_id"];
             isOneToOne: false;
             referencedRelation: "sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "registrations_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
             referencedColumns: ["id"];
           },
         ];

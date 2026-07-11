@@ -1,23 +1,94 @@
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Trash2, X } from "lucide-react";
+import { getAdminCourseSessionOptions } from "@/lib/actions/admin/registrations";
 import { formatSessionDate } from "@/lib/admin/format";
-import type { AdminRegistration } from "@/lib/admin/types";
+import type { AdminOrderRegistration, AdminOrderStudent } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
+import { createDefaultStudent } from "@/lib/validation/registration-schema";
+
+type SessionOption = {
+  id: string;
+  label: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  remainingCapacity: number;
+  status: string;
+};
+
+type ClassSessionGroup = {
+  classId: string;
+  className: string;
+  weekday: string;
+  unitPrice: number;
+  sessions: SessionOption[];
+};
 
 type RegistrationEditModalProps = {
-  registration: AdminRegistration;
+  registration: AdminOrderRegistration;
   courses: Course[];
   onClose: () => void;
   onSave: (
-    updated: AdminRegistration,
+    updated: AdminOrderRegistration,
+    students: AdminOrderStudent[],
   ) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 };
 
+type EditableStudent = {
+  key: string;
+  id?: string;
+  studentName: string;
+  studentAge: string;
+  gender: string;
+  isFirstTime: boolean;
+  note: string;
+  sessionIds: string[];
+  registrationIds: string[];
+};
+
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
+
+function toEditableStudent(student: AdminOrderStudent, index: number): EditableStudent {
+  return {
+    key: student.id || `student-${index}`,
+    id: student.id.startsWith("legacy:") ? undefined : student.id,
+    studentName: student.student_name,
+    studentAge: student.student_age,
+    gender: student.gender ?? "",
+    isFirstTime: student.is_first_time,
+    note: student.note ?? "",
+    sessionIds: student.sessions
+      .map((session) => session.sessionId)
+      .filter((value): value is string => Boolean(value)),
+    registrationIds: student.registrationIds,
+  };
+}
+
+function toOrderStudent(student: EditableStudent): AdminOrderStudent {
+  return {
+    id: student.id ?? student.key,
+    student_name: student.studentName,
+    student_age: student.studentAge,
+    gender: student.gender || null,
+    is_first_time: student.isFirstTime,
+    note: student.note || null,
+    sessions: student.sessionIds.map((sessionId, index) => ({
+      registrationId: student.registrationIds[index] ?? `${student.key}-${sessionId}`,
+      sessionId,
+      date: "",
+      start_time: "",
+      end_time: "",
+      className: "—",
+      scheduleLine: sessionId,
+      compactLine: sessionId,
+    })),
+    registrationIds: student.registrationIds,
+  };
+}
 
 export function RegistrationEditModal({
   registration,
@@ -26,44 +97,122 @@ export function RegistrationEditModal({
   onSave,
   isPending,
 }: RegistrationEditModalProps) {
-  const [form, setForm] = useState({
+  const [parentForm, setParentForm] = useState({
     courseId: registration.course_id,
     name: registration.name,
     phone: registration.phone,
     email: registration.email,
-    studentName: registration.student_name,
-    studentAge: registration.student_age,
-    isFirstTime: registration.is_first_time,
-    note: registration.note ?? "",
+    parentNote: registration.parent_note ?? "",
   });
+  const [students, setStudents] = useState<EditableStudent[]>(() =>
+    registration.students.map(toEditableStudent),
+  );
+  const [sessionGroups, setSessionGroups] = useState<ClassSessionGroup[]>([]);
+  const [usesSessions, setUsesSessions] = useState(false);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedCourse = courses.find((course) => course.id === form.courseId);
+  const selectedCourse = courses.find((course) => course.id === parentForm.courseId);
+  const canAddStudents = Boolean(registration.order_id);
 
-  const updateField = <K extends keyof typeof form>(
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSessions() {
+      setLoadingSessions(true);
+      const result = await getAdminCourseSessionOptions(parentForm.courseId);
+      if (cancelled) return;
+
+      if (result.usesSessions) {
+        setUsesSessions(true);
+        setSessionGroups(result.classes);
+      } else {
+        setUsesSessions(false);
+        setSessionGroups([]);
+      }
+      setLoadingSessions(false);
+    }
+
+    void loadSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [parentForm.courseId]);
+
+  const updateParent = <K extends keyof typeof parentForm>(
     key: K,
-    value: (typeof form)[K],
+    value: (typeof parentForm)[K],
   ) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setParentForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateStudent = (
+    key: string,
+    patch: Partial<EditableStudent>,
+  ) => {
+    setStudents((current) =>
+      current.map((student) =>
+        student.key === key ? { ...student, ...patch } : student,
+      ),
+    );
+  };
+
+  const addStudent = () => {
+    const next = createDefaultStudent(students.length);
+    setStudents((current) => [
+      ...current,
+      {
+        key: `new-${Date.now()}`,
+        studentName: next.studentName,
+        studentAge: next.studentAge,
+        gender: next.gender ?? "",
+        isFirstTime: next.isFirstTime === "yes",
+        note: next.note ?? "",
+        sessionIds: [],
+        registrationIds: [],
+      },
+    ]);
+  };
+
+  const removeStudent = (key: string) => {
+    if (students.length <= 1) return;
+    setStudents((current) => current.filter((student) => student.key !== key));
+  };
+
+  const toggleSession = (studentKey: string, sessionId: string) => {
+    setStudents((current) =>
+      current.map((student) => {
+        if (student.key !== studentKey) return student;
+
+        const exists = student.sessionIds.includes(sessionId);
+        return {
+          ...student,
+          sessionIds: exists
+            ? student.sessionIds.filter((id) => id !== sessionId)
+            : [...student.sessionIds, sessionId],
+        };
+      }),
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
-    const result = await onSave({
+    const updated: AdminOrderRegistration = {
       ...registration,
-      course_id: form.courseId,
-      name: form.name,
-      phone: form.phone,
-      email: form.email,
-      student_name: form.studentName,
-      student_age: form.studentAge,
-      is_first_time: form.isFirstTime,
-      note: form.note || null,
+      course_id: parentForm.courseId,
+      name: parentForm.name,
+      phone: parentForm.phone,
+      email: parentForm.email,
+      parent_note: parentForm.parentNote || null,
       courseTitle: selectedCourse?.title ?? registration.courseTitle,
       courseCategory: selectedCourse?.category ?? registration.courseCategory,
-    });
+      students: students.map(toOrderStudent),
+      studentCount: students.length,
+    };
+
+    const result = await onSave(updated, updated.students);
 
     if (!result.success) {
       setError(result.error ?? "更新失敗");
@@ -73,14 +222,14 @@ export function RegistrationEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
-        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-white px-6 py-5">
+      <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white px-6 py-5">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-gold">
               Edit
             </p>
             <h2 className="mt-1 font-display text-xl font-semibold text-foreground">
-              編輯報名資料
+              編輯訂單報名資料
             </h2>
           </div>
           <button
@@ -93,99 +242,211 @@ export function RegistrationEditModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
-          <section className="rounded-2xl border border-border bg-surface px-5 py-4">
-            <h3 className="text-sm font-medium text-foreground">報名時段</h3>
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
+          <section className="space-y-4 rounded-2xl border border-border bg-surface px-5 py-4">
+            <h3 className="text-sm font-medium text-foreground">家長資料</h3>
 
-            <ul className="mt-3 space-y-2 text-sm text-foreground">
-              {registration.sessions.map((session) => (
-                <li key={session.registrationId}>
-                  ✓ {session.compactLine}
-                </li>
-              ))}
-            </ul>
+            <div>
+              <label className="text-sm font-medium text-foreground">課程</label>
+              <select
+                value={parentForm.courseId}
+                onChange={(event) => updateParent("courseId", event.target.value)}
+                className={inputClass}
+              >
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title} · {formatSessionDate(course.sessionDate)}{" "}
+                    {course.sessionTime}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            {registration.className !== "—" ? (
-              <p className="mt-3 text-sm text-muted">
-                班別：<span className="font-medium text-foreground">{registration.className}</span>
-              </p>
-            ) : null}
-          </section>
-
-          <div>
-            <label className="text-sm font-medium text-foreground">課程</label>
-            <select
-              value={form.courseId}
-              onChange={(event) => updateField("courseId", event.target.value)}
-              className={inputClass}
-            >
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title} · {formatSessionDate(course.sessionDate)}{" "}
-                  {course.sessionTime}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            {(
-              [
-                { key: "name", label: "姓名", type: "text" },
-                { key: "phone", label: "電話", type: "tel" },
-                { key: "email", label: "Email", type: "email" },
-                { key: "studentName", label: "學生姓名", type: "text" },
-                { key: "studentAge", label: "年齡", type: "text" },
-              ] as const
-            ).map((field) => (
-              <div key={field.key}>
-                <label className="text-sm font-medium text-foreground">
-                  {field.label}
-                </label>
-                <input
-                  type={field.type}
-                  value={form[field.key]}
-                  onChange={(event) =>
-                    updateField(field.key, event.target.value)
-                  }
-                  className={inputClass}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="text-sm font-medium text-foreground">是否第一次參加</p>
-            <div className="mt-3 flex gap-4">
-              {[
-                { value: true, label: "是" },
-                { value: false, label: "否" },
-              ].map((option) => (
-                <label
-                  key={option.label}
-                  className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-                >
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(
+                [
+                  { key: "name", label: "家長姓名", type: "text" },
+                  { key: "phone", label: "電話", type: "tel" },
+                  { key: "email", label: "Email", type: "email" },
+                ] as const
+              ).map((field) => (
+                <div key={field.key}>
+                  <label className="text-sm font-medium text-foreground">
+                    {field.label}
+                  </label>
                   <input
-                    type="radio"
-                    checked={form.isFirstTime === option.value}
-                    onChange={() => updateField("isFirstTime", option.value)}
-                    className="h-4 w-4 accent-gold"
+                    type={field.type}
+                    value={parentForm[field.key]}
+                    onChange={(event) =>
+                      updateParent(field.key, event.target.value)
+                    }
+                    className={inputClass}
                   />
-                  {option.label}
-                </label>
+                </div>
               ))}
             </div>
-          </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground">備註</label>
-            <textarea
-              rows={3}
-              value={form.note}
-              onChange={(event) => updateField("note", event.target.value)}
-              className={`${inputClass} resize-none`}
-            />
-          </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">備註</label>
+              <textarea
+                rows={2}
+                value={parentForm.parentNote}
+                onChange={(event) => updateParent("parentNote", event.target.value)}
+                className={`${inputClass} resize-none`}
+              />
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-foreground">報名學生</h3>
+              {canAddStudents ? (
+                <button
+                  type="button"
+                  onClick={addStudent}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  新增學生
+                </button>
+              ) : null}
+            </div>
+
+            {students.map((student, index) => (
+              <div
+                key={student.key}
+                className="space-y-4 rounded-2xl border border-border px-5 py-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-foreground">學生 {index + 1}</h4>
+                  {students.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => removeStudent(student.key)}
+                      className="inline-flex items-center gap-1 text-xs text-red-600 transition hover:text-red-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      刪除
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      學生姓名
+                    </label>
+                    <input
+                      type="text"
+                      value={student.studentName}
+                      onChange={(event) =>
+                        updateStudent(student.key, {
+                          studentName: event.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">年齡</label>
+                    <input
+                      type="text"
+                      value={student.studentAge}
+                      onChange={(event) =>
+                        updateStudent(student.key, {
+                          studentAge: event.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground">是否第一次參加</p>
+                  <div className="mt-3 flex gap-4">
+                    {[
+                      { value: true, label: "是" },
+                      { value: false, label: "否" },
+                    ].map((option) => (
+                      <label
+                        key={option.label}
+                        className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                      >
+                        <input
+                          type="radio"
+                          checked={student.isFirstTime === option.value}
+                          onChange={() =>
+                            updateStudent(student.key, {
+                              isFirstTime: option.value,
+                            })
+                          }
+                          className="h-4 w-4 accent-gold"
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-foreground">備註</label>
+                  <textarea
+                    rows={2}
+                    value={student.note}
+                    onChange={(event) =>
+                      updateStudent(student.key, { note: event.target.value })
+                    }
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+
+                {usesSessions ? (
+                  <div>
+                    <p className="text-sm font-medium text-foreground">可報名時段</p>
+                    {loadingSessions ? (
+                      <p className="mt-2 text-sm text-muted">載入時段中…</p>
+                    ) : (
+                      <div className="mt-3 space-y-4">
+                        {sessionGroups.map((group) => (
+                          <div key={group.classId}>
+                            <p className="text-xs font-medium text-muted">
+                              {group.className} · {group.weekday}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {group.sessions.map((session) => {
+                                const checked = student.sessionIds.includes(session.id);
+                                return (
+                                  <label
+                                    key={session.id}
+                                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+                                      checked
+                                        ? "border-gold bg-gold-soft text-gold"
+                                        : "border-border text-foreground hover:border-gold/40"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() =>
+                                        toggleSession(student.key, session.id)
+                                      }
+                                      className="sr-only"
+                                    />
+                                    {session.label}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </section>
 
           {error && (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

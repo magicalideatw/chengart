@@ -4,10 +4,15 @@ import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { createPendingOrder } from "@/lib/orders/queries";
 import {
+  buildSessionPriceMap,
+  calculateOrderTotal,
+} from "@/lib/registration/pricing";
+import {
   getCourseRegistrationPlan,
   validateSessionSelection,
 } from "@/lib/registration/queries";
 import {
+  normalizeStudentsFromFormData,
   resolveOrderSessionIds,
   type RegistrationOrderFormData,
 } from "@/lib/registration/types";
@@ -55,37 +60,66 @@ export async function createRegistrationOrder(
     return { success: false, error: "此課程目前未開放報名" };
   }
 
-  const sessionIds = resolveOrderSessionIds({
-    formData: {
-      ...parsed.data,
-      sessionIds: parsed.data.sessionIds ?? input.formData.sessionIds,
-    },
-    sessionIds: input.sessionIds,
-  });
+  const orderFormData: RegistrationOrderFormData = parsed.data;
+  const students = normalizeStudentsFromFormData(orderFormData);
+
+  if (students.length === 0) {
+    return { success: false, error: "請至少新增一位學生" };
+  }
 
   const plan = await getCourseRegistrationPlan(course.id);
   const usesSessions = plan?.usesSessions ?? false;
+  const sessionPriceMap = plan ? buildSessionPriceMap(plan) : new Map();
 
-  if (usesSessions && sessionIds.length === 0) {
-    return { success: false, error: "請至少選擇一堂上課日期" };
+  if (usesSessions) {
+    const missingSessions = students.some(
+      (student) => (student.sessionIds?.length ?? 0) === 0,
+    );
+    if (missingSessions) {
+      return { success: false, error: "每位學生都需至少選擇一堂上課日期" };
+    }
   }
 
-  let amount = course.fee;
-  let orderFormData: RegistrationOrderFormData = parsed.data;
+  const allSessionIds = resolveOrderSessionIds({
+    formData: orderFormData,
+    sessionIds: input.sessionIds,
+  });
 
-  if (sessionIds.length > 0) {
-    const validation = await validateSessionSelection(course.id, sessionIds);
+  let amount = calculateOrderTotal({
+    usesSessions,
+    courseFee: course.fee,
+    students,
+    sessionPriceMap,
+    defaultUnitPrice: plan?.defaultUnitPrice ?? course.fee,
+  });
+
+  let enrichedFormData: RegistrationOrderFormData = {
+    ...orderFormData,
+    students,
+  };
+
+  if (usesSessions && allSessionIds.length > 0) {
+    const validation = await validateSessionSelection(course.id, allSessionIds);
     if (!validation.success) {
       return { success: false, error: validation.error };
     }
 
-    amount = validation.data.totalAmount;
-    orderFormData = {
-      ...parsed.data,
-      sessionIds,
+    amount = calculateOrderTotal({
+      usesSessions: true,
+      courseFee: course.fee,
+      students,
+      sessionPriceMap,
+      defaultUnitPrice: plan?.defaultUnitPrice ?? course.fee,
+    });
+
+    enrichedFormData = {
+      ...enrichedFormData,
+      sessionIds: allSessionIds,
       sessionSummaries: validation.data.sessionSummaries,
       unitPrice:
-        sessionIds.length > 0 ? Math.round(amount / sessionIds.length) : course.fee,
+        allSessionIds.length > 0
+          ? Math.round(amount / allSessionIds.length)
+          : course.fee,
     };
   } else {
     if (course.isFull) {
@@ -107,7 +141,7 @@ export async function createRegistrationOrder(
     courseId: course.id,
     courseTitle: course.title,
     amount,
-    formData: orderFormData,
+    formData: enrichedFormData,
   });
 
   if (!order) {
