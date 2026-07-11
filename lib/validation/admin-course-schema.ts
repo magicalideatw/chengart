@@ -17,7 +17,14 @@ export const adminCourseSchema = z.object({
   sessionTime: z.string().min(1, "請填寫上課時間"),
   capacity: z.coerce.number().int().min(1, "名額至少為 1"),
   fee: z.coerce.number().int().min(0, "費用不可為負數"),
-  coverImage: z.string().trim().optional().default(""),
+  coverImage: z
+    .string()
+    .trim()
+    .optional()
+    .default("")
+    .refine((value) => !value || !/^https?:\/\//i.test(value), {
+      message: "請上傳圖片，不可使用外部網址",
+    }),
   isOpen: z.boolean(),
   allowedPaymentMethods: z
     .array(z.enum(PAYMENT_METHODS))

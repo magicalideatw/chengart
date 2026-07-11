@@ -1,22 +1,30 @@
 import type { NextConfig } from "next";
 
+function getSupabaseImagePattern() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+
+  try {
+    const hostname = new URL(url).hostname;
+    return {
+      protocol: "https" as const,
+      hostname,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const supabaseImagePattern = getSupabaseImagePattern();
+
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb",
+      bodySizeLimit: "32mb",
     },
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "hqfivkwgjepustrwtwjs.supabase.co",
-      },
-    ],
+    remotePatterns: supabaseImagePattern ? [supabaseImagePattern] : [],
   },
 };
 

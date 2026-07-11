@@ -7,6 +7,7 @@ import {
   COURSE_COVER_MAX_FILE_SIZE,
   COURSE_COVERS_BUCKET,
 } from "@/lib/courses/constants";
+import { buildCourseCoverStoragePath } from "@/lib/courses/cover-image";
 import { mapCourseToDb } from "@/lib/courses/mappers";
 import type { AdminActionResult } from "@/lib/admin/types";
 import type { CourseFormInput } from "@/lib/courses/types";
@@ -131,7 +132,7 @@ export async function deleteCourse(id: string): Promise<AdminActionResult> {
 }
 
 export type UploadCourseCoverResult =
-  | { success: true; url: string }
+  | { success: true; path: string }
   | { success: false; error: string };
 
 export async function uploadCourseCover(
@@ -157,12 +158,12 @@ export async function uploadCourseCover(
   }
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${crypto.randomUUID()}.${extension}`;
+  const filename = `${crypto.randomUUID()}.${extension}`;
 
   const supabase = await createServerClient();
   const { error } = await supabase.storage
     .from(COURSE_COVERS_BUCKET)
-    .upload(path, file, {
+    .upload(filename, file, {
       contentType: file.type,
       upsert: false,
     });
@@ -173,11 +174,10 @@ export async function uploadCourseCover(
       success: false,
       error:
         error.message.includes("Bucket not found")
-          ? "請先在 Supabase 執行 019_course_covers_storage.sql"
+          ? "請先在 Supabase 執行 020_course_covers_storage_paths.sql"
           : "上傳圖片失敗，請稍後再試",
     };
   }
 
-  const { data } = supabase.storage.from(COURSE_COVERS_BUCKET).getPublicUrl(path);
-  return { success: true, url: data.publicUrl };
+  return { success: true, path: buildCourseCoverStoragePath(filename) };
 }

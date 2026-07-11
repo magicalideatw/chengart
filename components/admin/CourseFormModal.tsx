@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { X, Upload } from "lucide-react";
-import Image from "next/image";
 import { uploadCourseCover } from "@/lib/actions/admin/courses";
 import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
-import { getCourseCoverDisplaySrc } from "@/lib/courses/cover-image";
+import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
 import type { Course, CourseFormInput } from "@/lib/courses/types";
 import {
@@ -95,7 +94,7 @@ export function CourseFormModal({
       return;
     }
 
-    updateField("coverImage", result.url);
+    updateField("coverImage", result.path);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -228,11 +227,13 @@ export function CourseFormModal({
             </label>
             <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="relative h-24 w-36 overflow-hidden rounded-xl border border-border">
-                <Image
-                  src={getCourseCoverDisplaySrc(form.coverImage)}
+                <CourseCoverImage
+                  src={form.coverImage}
                   alt="課程圖片預覽"
-                  fill
-                  className="object-cover"
+                  fill={false}
+                  width={144}
+                  height={96}
+                  className="h-full w-full object-cover"
                   sizes="144px"
                 />
               </div>

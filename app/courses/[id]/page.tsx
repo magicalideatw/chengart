@@ -4,7 +4,7 @@ import { CourseRegistrationFlow } from "@/components/courses/registration/Course
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
-import { resolveCourseCoverSrc } from "@/lib/courses/cover-image";
+import { getCourseCoverAbsoluteUrl } from "@/lib/courses/cover-image";
 import { siteConfig } from "@/lib/data/site";
 import { getCourseRegistrationPlan } from "@/lib/registration/queries";
 
@@ -24,7 +24,7 @@ export async function generateMetadata({
     return { title: "課程不存在" };
   }
 
-  const coverImage = resolveCourseCoverSrc(course.coverImage);
+  const coverImage = getCourseCoverAbsoluteUrl(course.coverImage, siteConfig.url);
 
   return {
     title: `${course.title} | ${siteConfig.name}`,
@@ -32,9 +32,7 @@ export async function generateMetadata({
     openGraph: {
       title: course.title,
       description: course.description,
-      ...(coverImage
-        ? { images: [{ url: coverImage, width: 1200, height: 630 }] }
-        : {}),
+      images: [{ url: coverImage, width: 1200, height: 630 }],
     },
   };
 }

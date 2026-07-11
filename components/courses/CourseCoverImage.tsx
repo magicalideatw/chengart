@@ -1,5 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
-import { getCourseCoverDisplaySrc } from "@/lib/courses/cover-image";
+import {
+  COURSE_PLACEHOLDER_IMAGE,
+} from "@/lib/courses/constants";
+import {
+  getCourseCoverDisplaySrc,
+  isAllowedCourseCoverDisplaySrc,
+} from "@/lib/courses/cover-image";
 
 type CourseCoverImageProps = {
   src?: string | null;
@@ -22,7 +31,12 @@ export function CourseCoverImage({
   sizes,
   priority,
 }: CourseCoverImageProps) {
-  const displaySrc = getCourseCoverDisplaySrc(src);
+  const [failed, setFailed] = useState(false);
+  const resolvedSrc = getCourseCoverDisplaySrc(src);
+  const displaySrc =
+    failed || !isAllowedCourseCoverDisplaySrc(resolvedSrc)
+      ? COURSE_PLACEHOLDER_IMAGE
+      : resolvedSrc;
 
   if (fill) {
     return (
@@ -33,6 +47,7 @@ export function CourseCoverImage({
         className={className}
         sizes={sizes}
         priority={priority}
+        onError={() => setFailed(true)}
       />
     );
   }
@@ -46,6 +61,7 @@ export function CourseCoverImage({
       className={className}
       sizes={sizes}
       priority={priority}
+      onError={() => setFailed(true)}
     />
   );
 }

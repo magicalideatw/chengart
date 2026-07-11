@@ -3,6 +3,7 @@ import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/
 import type { PaymentMethod } from "@/lib/payment/types";
 import { parsePaymentMethods } from "@/lib/payment/types";
 import { parseRegistrationMode } from "@/lib/courses/registration-mode";
+import { normalizeCourseCoverStorageValue, sanitizeCourseCoverForStorage } from "@/lib/courses/cover-image";
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -38,7 +39,7 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     sessionTime: "—",
     capacity: row.max_capacity_per_class ?? 5,
     fee: 0,
-    coverImage: row.cover_image ?? "",
+    coverImage: normalizeCourseCoverStorageValue(row.cover_image),
     isOpen: true,
     allowedPaymentMethods: ["ecpay"],
     registrationMode: "adult",
@@ -64,7 +65,7 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     sessionTime: course.session_time ?? "—",
     capacity: course.capacity ?? 5,
     fee: course.fee ?? 0,
-    coverImage: course.cover_image ?? "",
+    coverImage: normalizeCourseCoverStorageValue(course.cover_image),
     isOpen: course.is_open ?? false,
     allowedPaymentMethods: parsePaymentMethods(course.allowed_payment_methods),
     registrationMode: parseRegistrationMode(course.registration_mode),
@@ -123,7 +124,7 @@ export function mapCourseToDb(input: {
     session_time: input.sessionTime,
     capacity: input.capacity,
     fee: input.fee,
-    cover_image: input.coverImage.trim() || null,
+    cover_image: sanitizeCourseCoverForStorage(input.coverImage),
     is_open: input.isOpen,
     allowed_payment_methods: input.allowedPaymentMethods,
     registration_mode: input.registrationMode,
