@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
+import type { RegistrationMode } from "@/lib/courses/registration-mode";
 import type { CourseRegistrationPlan } from "@/lib/registration/queries";
 
 type CourseRegistrationHeroProps = {
@@ -11,6 +12,7 @@ type CourseRegistrationHeroProps = {
   plan: CourseRegistrationPlan;
   onRegister: () => void;
   canRegister: boolean;
+  registrationMode: RegistrationMode;
 };
 
 export function CourseRegistrationHero({
@@ -18,8 +20,15 @@ export function CourseRegistrationHero({
   plan,
   onRegister,
   canRegister,
+  registrationMode,
 }: CourseRegistrationHeroProps) {
   const usesSessions = plan.usesSessions;
+  const heroHint =
+    registrationMode === "adult"
+      ? "請填寫報名資料並選擇上課日期"
+      : registrationMode === "parent"
+        ? "請填寫家長資料，並為每位學生選擇上課日期"
+        : "請選擇報名方式並填寫資料";
 
   return (
     <section className="relative">
@@ -76,9 +85,7 @@ export function CourseRegistrationHero({
           </div>
           {canRegister ? (
             usesSessions ? (
-              <p className="mt-8 text-sm text-white/80">
-                請填寫家長資料，並為每位學生選擇上課日期
-              </p>
+              <p className="mt-8 text-sm text-white/80">{heroHint}</p>
             ) : (
               <button
                 type="button"

@@ -12,6 +12,7 @@ import type { AdminOrderRegistration } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
 import { AdminSearchBar } from "./AdminSearchBar";
 import { RegistrationEditModal } from "./RegistrationEditModal";
+import { RegistrationStudentBadge } from "./RegistrationStudentBadge";
 import { Toast } from "@/components/ui/Toast";
 
 const STATUS_LABELS: Record<AdminOrderRegistration["status"], string> = {
@@ -315,7 +316,11 @@ export function RegistrationTable({
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                            共 {item.studentCount} 位學生
+                            <RegistrationStudentBadge
+                              registrationType={item.registrationType}
+                              studentCount={item.studentCount}
+                              studentNames={item.studentNames}
+                            />
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-muted">
                             {formatDateTime(item.created_at)}

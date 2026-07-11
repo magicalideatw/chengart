@@ -1,10 +1,10 @@
-import type { CourseRegistrationPlan } from "@/lib/registration/queries";
 import type { OrderStudentInput } from "@/lib/registration/types";
 
 export type SessionPriceMap = Map<string, number>;
 
+/** @deprecated session-based pricing replaced by price_per_student */
 export function buildSessionPriceMap(
-  plan: CourseRegistrationPlan,
+  plan: import("@/lib/registration/queries").CourseRegistrationPlan,
 ): SessionPriceMap {
   const map = new Map<string, number>();
   for (const item of plan.classes) {
@@ -15,6 +15,7 @@ export function buildSessionPriceMap(
   return map;
 }
 
+/** @deprecated use calculateOrderTotal with pricePerStudent */
 export function calculateStudentSessionTotal(
   sessionIds: string[],
   sessionPriceMap: SessionPriceMap,
@@ -26,30 +27,37 @@ export function calculateStudentSessionTotal(
   );
 }
 
-export function calculateOrderTotal(input: {
-  usesSessions: boolean;
-  courseFee: number;
-  students: Pick<OrderStudentInput, "sessionIds">[];
-  sessionPriceMap: SessionPriceMap;
-  defaultUnitPrice: number;
+export function getEffectivePricePerStudent(course: {
+  pricePerStudent?: number;
+  fee?: number;
 }): number {
-  const { usesSessions, courseFee, students, sessionPriceMap, defaultUnitPrice } =
-    input;
-
-  if (students.length === 0) return 0;
-
-  if (usesSessions) {
-    return students.reduce(
-      (total, student) =>
-        total +
-        calculateStudentSessionTotal(
-          student.sessionIds ?? [],
-          sessionPriceMap,
-          defaultUnitPrice,
-        ),
-      0,
-    );
+  if (typeof course.pricePerStudent === "number" && course.pricePerStudent >= 0) {
+    return course.pricePerStudent;
   }
+  return course.fee ?? 0;
+}
 
-  return courseFee * students.length;
+export function countRegistrationStudents(
+  students: Pick<OrderStudentInput, "sessionIds">[] | undefined,
+): number {
+  return Math.max(students?.length ?? 0, 0);
+}
+
+export function calculateOrderTotal(input: {
+  pricePerStudent: number;
+  studentCount: number;
+}): number {
+  const count = Math.max(input.studentCount, 0);
+  const unit = Math.max(input.pricePerStudent, 0);
+  return unit * count;
+}
+
+export function calculateOrderTotalFromStudents(input: {
+  pricePerStudent: number;
+  students: Pick<OrderStudentInput, "sessionIds">[];
+}): number {
+  return calculateOrderTotal({
+    pricePerStudent: input.pricePerStudent,
+    studentCount: countRegistrationStudents(input.students),
+  });
 }

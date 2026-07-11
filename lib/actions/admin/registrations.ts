@@ -5,9 +5,14 @@ import { requireAuthenticatedUser } from "@/lib/auth/session";
 import type { AdminActionResult, AdminOrderUpdate } from "@/lib/admin/types";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import {
+  calculateOrderTotal,
+  getEffectivePricePerStudent,
+} from "@/lib/registration/pricing";
+import {
   getCourseRegistrationPlan,
   validateSessionSelection,
 } from "@/lib/registration/queries";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase/database.types";
@@ -411,6 +416,54 @@ export async function updateOrderRegistration(
       if (error) {
         return { success: false, error: "刪除學生失敗" };
       }
+    }
+
+    const pricePerStudent = getEffectivePricePerStudent(course);
+    const studentCount = data.students.length;
+    const newAmount = calculateOrderTotal({ pricePerStudent, studentCount });
+
+    const { data: orderRow } = await supabase
+      .from("orders")
+      .select("form_data")
+      .eq("id", data.orderId)
+      .maybeSingle();
+
+    const existingFormData =
+      orderRow?.form_data && typeof orderRow.form_data === "object"
+        ? (orderRow.form_data as RegistrationOrderFormData)
+        : ({} as RegistrationOrderFormData);
+
+    const updatedStudents = data.students.map((student, index) => ({
+      clientId: existingFormData.students?.[index]?.clientId ?? `student-${index + 1}`,
+      studentName: student.studentName,
+      studentAge: student.studentAge,
+      gender: (student.gender?.trim() || "") as "" | "male" | "female" | "other",
+      isFirstTime: student.isFirstTime ? ("yes" as const) : ("no" as const),
+      note: student.note?.trim() || "",
+      sessionIds: student.sessionIds,
+    }));
+
+    const formData: RegistrationOrderFormData = {
+      ...existingFormData,
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      parentNote: data.parentNote || undefined,
+      students: updatedStudents,
+      unitPrice: pricePerStudent,
+    };
+
+    const { error: orderUpdateError } = await supabase
+      .from("orders")
+      .update({
+        amount: newAmount,
+        form_data: formData,
+      })
+      .eq("id", data.orderId);
+
+    if (orderUpdateError) {
+      console.error("Update order amount failed:", orderUpdateError.message);
+      return { success: false, error: "更新訂單金額失敗" };
     }
   }
 

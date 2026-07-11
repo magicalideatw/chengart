@@ -1,13 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import { Trash2 } from "lucide-react";
-import { formatFee } from "@/lib/admin/format";
 import type { ClassWithSessionsOption } from "@/lib/registration/queries";
-import {
-  calculateStudentSessionTotal,
-} from "@/lib/registration/pricing";
 import type { ParentFormValues } from "@/lib/validation/registration-schema";
 import { StudentSessionPicker } from "./StudentSessionPicker";
 
@@ -18,7 +13,6 @@ type StudentRegistrationCardProps = {
   index: number;
   usesSessions: boolean;
   classes: ClassWithSessionsOption[];
-  defaultUnitPrice: number;
   canRemove: boolean;
   onRemove: () => void;
 };
@@ -27,7 +21,6 @@ export function StudentRegistrationCard({
   index,
   usesSessions,
   classes,
-  defaultUnitPrice,
   canRemove,
   onRemove,
 }: StudentRegistrationCardProps) {
@@ -38,25 +31,7 @@ export function StudentRegistrationCard({
     formState: { errors },
   } = useFormContext<ParentFormValues>();
 
-  const sessionPriceMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const item of classes) {
-      for (const session of item.sessions) {
-        map.set(session.id, item.unitPrice);
-      }
-    }
-    return map;
-  }, [classes]);
-
   const selectedSessionIds = watch(`students.${index}.sessionIds`) ?? [];
-  const studentTotal = usesSessions
-    ? calculateStudentSessionTotal(
-        selectedSessionIds,
-        sessionPriceMap,
-        defaultUnitPrice,
-      )
-    : defaultUnitPrice;
-
   const studentErrors = errors.students?.[index];
 
   return (
@@ -153,10 +128,7 @@ export function StudentRegistrationCard({
 
       {usesSessions ? (
         <div className="mt-6 border-t border-border pt-6">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <p className="text-sm font-medium text-foreground">可報名時段</p>
-            <p className="text-sm text-gold">{formatFee(studentTotal)}</p>
-          </div>
+          <p className="mb-4 text-sm font-medium text-foreground">可報名時段</p>
           <StudentSessionPicker
             classes={classes}
             selectedSessionIds={selectedSessionIds}

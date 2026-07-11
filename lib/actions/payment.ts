@@ -10,8 +10,8 @@ import {
   resolveAvailablePaymentMethods,
 } from "@/lib/payment/types";
 import {
-  buildSessionPriceMap,
-  calculateOrderTotal,
+  calculateOrderTotalFromStudents,
+  getEffectivePricePerStudent,
 } from "@/lib/registration/pricing";
 import {
   getCourseRegistrationPlan,
@@ -87,7 +87,6 @@ export async function createRegistrationOrder(
 
   const plan = await getCourseRegistrationPlan(course.id);
   const usesSessions = plan?.usesSessions ?? false;
-  const sessionPriceMap = plan ? buildSessionPriceMap(plan) : new Map();
 
   if (usesSessions) {
     const missingSessions = students.some(
@@ -103,18 +102,17 @@ export async function createRegistrationOrder(
     sessionIds: input.sessionIds,
   });
 
-  let amount = calculateOrderTotal({
-    usesSessions,
-    courseFee: course.fee,
+  const pricePerStudent = getEffectivePricePerStudent(course);
+  const amount = calculateOrderTotalFromStudents({
+    pricePerStudent,
     students,
-    sessionPriceMap,
-    defaultUnitPrice: plan?.defaultUnitPrice ?? course.fee,
   });
 
   let enrichedFormData: RegistrationOrderFormData = {
     ...orderFormData,
     students,
     paymentMethod: input.paymentMethod,
+    unitPrice: pricePerStudent,
   };
 
   if (usesSessions && allSessionIds.length > 0) {
@@ -123,22 +121,10 @@ export async function createRegistrationOrder(
       return { success: false, error: validation.error };
     }
 
-    amount = calculateOrderTotal({
-      usesSessions: true,
-      courseFee: course.fee,
-      students,
-      sessionPriceMap,
-      defaultUnitPrice: plan?.defaultUnitPrice ?? course.fee,
-    });
-
     enrichedFormData = {
       ...enrichedFormData,
       sessionIds: allSessionIds,
       sessionSummaries: validation.data.sessionSummaries,
-      unitPrice:
-        allSessionIds.length > 0
-          ? Math.round(amount / allSessionIds.length)
-          : course.fee,
     };
   } else if (!usesSessions && course.isFull) {
     return { success: false, error: "此課程已額滿" };

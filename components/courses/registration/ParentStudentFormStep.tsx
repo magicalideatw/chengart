@@ -15,13 +15,11 @@ const inputClass =
 type ParentStudentFormStepProps = {
   usesSessions: boolean;
   classes: ClassWithSessionsOption[];
-  defaultUnitPrice: number;
 };
 
 export function ParentStudentFormStep({
   usesSessions,
   classes,
-  defaultUnitPrice,
 }: ParentStudentFormStepProps) {
   const {
     register,
@@ -43,7 +41,7 @@ export function ParentStudentFormStep({
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           {(
             [
-              { name: "name" as const, label: "姓名", type: "text" },
+              { name: "name" as const, label: "家長姓名", type: "text" },
               { name: "phone" as const, label: "電話", type: "tel" },
               { name: "email" as const, label: "Email", type: "email" },
             ] as const
@@ -64,14 +62,6 @@ export function ParentStudentFormStep({
               )}
             </div>
           ))}
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium text-foreground">備註</label>
-            <textarea
-              rows={2}
-              {...register("parentNote")}
-              className={`${inputClass} resize-none`}
-            />
-          </div>
         </div>
       </section>
 
@@ -101,7 +91,6 @@ export function ParentStudentFormStep({
               index={index}
               usesSessions={usesSessions}
               classes={classes}
-              defaultUnitPrice={defaultUnitPrice}
               canRemove={fields.length > 1}
               onRemove={() => remove(index)}
             />

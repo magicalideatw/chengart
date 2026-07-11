@@ -1,3 +1,5 @@
+import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
+
 export type RegistrationPaymentStatus = "pending" | "paid" | "cancelled";
 
 export type AdminRegistrationSession = {
@@ -37,6 +39,9 @@ export type AdminOrderRegistration = {
   courseCategory: string;
   students: AdminOrderStudent[];
   studentCount: number;
+  registrationType: ActiveRegistrationType;
+  orderAmount: number | null;
+  studentNames: string[];
   slotEnrollment: number;
   maxCapacity: number;
 };

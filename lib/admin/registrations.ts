@@ -7,6 +7,7 @@ import {
 import type { AdminRegistration } from "@/lib/admin/types";
 import { mapCourseRow } from "@/lib/courses/mappers";
 import { getEnrollmentCountsByCourseIds } from "@/lib/courses/queries";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function fetchAdminRegistrations(): Promise<{
@@ -51,7 +52,11 @@ export async function fetchAdminRegistrations(): Promise<{
     rows = (primaryResult.data ?? []) as RegistrationJoinRow[];
   }
 
-  const coursesResult = await supabase.from("courses").select("*");
+  const [coursesResult, ordersResult] = await Promise.all([
+    supabase.from("courses").select("*"),
+    supabase.from("orders").select("id, amount, form_data"),
+  ]);
+
   const courseMap = new Map<string, ReturnType<typeof mapCourseRow>>();
 
   for (const row of coursesResult.data ?? []) {
@@ -63,13 +68,30 @@ export async function fetchAdminRegistrations(): Promise<{
     }
   }
 
+  const orderMap = new Map<
+    string,
+    { amount: number | null; formData: RegistrationOrderFormData | null }
+  >();
+
+  for (const order of ordersResult.data ?? []) {
+    orderMap.set(String(order.id), {
+      amount: typeof order.amount === "number" ? order.amount : null,
+      formData: (order.form_data as RegistrationOrderFormData) ?? null,
+    });
+  }
+
   const courseIds = rows
     .map((row) => row.course_id ?? row.course_slug)
     .filter((value): value is string => Boolean(value));
 
   const slotCounts = await getEnrollmentCountsByCourseIds(courseIds);
 
-  const registrations = groupAdminRegistrations(rows, courseMap, slotCounts);
+  const registrations = groupAdminRegistrations(
+    rows,
+    courseMap,
+    slotCounts,
+    orderMap,
+  );
 
   return {
     registrations,

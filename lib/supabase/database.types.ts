@@ -26,6 +26,8 @@ export type Database = {
           cover_image: string;
           is_open: boolean;
           allowed_payment_methods: Json;
+          registration_mode: string;
+          price_per_student: number;
           created_at: string;
           updated_at: string;
           slug?: string;
@@ -45,6 +47,8 @@ export type Database = {
           cover_image: string;
           is_open?: boolean;
           allowed_payment_methods?: Json;
+          registration_mode?: string;
+          price_per_student?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -60,6 +64,8 @@ export type Database = {
           cover_image?: string;
           is_open?: boolean;
           allowed_payment_methods?: Json;
+          registration_mode?: string;
+          price_per_student?: number;
           created_at?: string;
           updated_at?: string;
         };

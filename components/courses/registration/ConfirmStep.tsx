@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { ClassWithSessionsOption } from "@/lib/registration/queries";
-import type { ParentFormValues } from "@/lib/validation/registration-schema";
+import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment/types";
 
@@ -14,7 +14,8 @@ type ConfirmStepProps = {
   feeLabel: string;
   usesSessions: boolean;
   classes: ClassWithSessionsOption[];
-  formData: ParentFormValues;
+  formData: RegistrationOrderFormValues;
+  variant: "adult" | "parent";
   paymentMethod?: PaymentMethod | null;
 };
 
@@ -39,8 +40,11 @@ export function ConfirmStep({
   usesSessions,
   classes,
   formData,
+  variant,
   paymentMethod,
 }: ConfirmStepProps) {
+  const contactLabel = variant === "adult" ? "姓名" : "家長姓名";
+
   const rows = [
     { label: "課程", value: courseTitle },
     ...(dateLabel ? [{ label: "日期", value: dateLabel }] : []),
@@ -49,13 +53,13 @@ export function ConfirmStep({
     ...(paymentMethod
       ? [{ label: "付款方式", value: PAYMENT_METHOD_LABELS[paymentMethod] }]
       : []),
-    { label: "家長姓名", value: formData.name },
+    { label: contactLabel, value: formData.name },
     { label: "電話", value: formData.phone },
     { label: "Email", value: formData.email },
   ];
 
-  if (formData.parentNote?.trim()) {
-    rows.push({ label: "家長備註", value: formData.parentNote.trim() });
+  if (variant === "adult" && formData.parentNote?.trim()) {
+    rows.push({ label: "備註", value: formData.parentNote.trim() });
   }
 
   return (
@@ -95,36 +99,61 @@ export function ConfirmStep({
         ))}
       </dl>
 
-      <div className="border-t border-border px-6 py-5 sm:px-8">
-        <p className="text-sm font-medium text-foreground">
-          報名學生（共 {formData.students.length} 位）
-        </p>
-        <div className="mt-4 space-y-4">
-          {formData.students.map((student, index) => (
-            <div
-              key={student.clientId ?? index}
-              className="rounded-2xl border border-border bg-surface px-4 py-4"
-            >
-              <p className="font-medium text-foreground">
-                學生 {index + 1}：{student.studentName || "—"}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                年齡 {student.studentAge || "—"} ·{" "}
-                {student.isFirstTime === "yes" ? "第一次參加" : "非第一次參加"}
-              </p>
-              {usesSessions ? (
-                <ul className="mt-3 space-y-1 text-sm text-foreground">
-                  {(student.sessionIds ?? []).map((sessionId) => (
-                    <li key={sessionId}>
-                      ✓ {findSessionLabel(classes, sessionId)}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ))}
+      {variant === "adult" ? (
+        <div className="border-t border-border px-6 py-5 sm:px-8">
+          <p className="text-sm font-medium text-foreground">報名資料</p>
+          <div className="mt-4 rounded-2xl border border-border bg-surface px-4 py-4">
+            <p className="font-medium text-foreground">{formData.students[0]?.studentName || "—"}</p>
+            <p className="mt-1 text-sm text-muted">
+              年齡 {formData.students[0]?.studentAge || "—"} ·{" "}
+              {formData.students[0]?.isFirstTime === "yes"
+                ? "第一次參加"
+                : "非第一次參加"}
+            </p>
+            {usesSessions ? (
+              <ul className="mt-3 space-y-1 text-sm text-foreground">
+                {(formData.students[0]?.sessionIds ?? []).map((sessionId) => (
+                  <li key={sessionId}>✓ {findSessionLabel(classes, sessionId)}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="border-t border-border px-6 py-5 sm:px-8">
+          <p className="text-sm font-medium text-foreground">
+            報名學生（共 {formData.students.length} 位）
+          </p>
+          <div className="mt-4 space-y-4">
+            {formData.students.map((student, index) => (
+              <div
+                key={student.clientId ?? index}
+                className="rounded-2xl border border-border bg-surface px-4 py-4"
+              >
+                <p className="font-medium text-foreground">
+                  學生 {index + 1}：{student.studentName || "—"}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  年齡 {student.studentAge || "—"} ·{" "}
+                  {student.isFirstTime === "yes" ? "第一次參加" : "非第一次參加"}
+                </p>
+                {student.note?.trim() ? (
+                  <p className="mt-2 text-sm text-muted">備註：{student.note.trim()}</p>
+                ) : null}
+                {usesSessions ? (
+                  <ul className="mt-3 space-y-1 text-sm text-foreground">
+                    {(student.sessionIds ?? []).map((sessionId) => (
+                      <li key={sessionId}>
+                        ✓ {findSessionLabel(classes, sessionId)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -2,6 +2,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { parsePaymentMethods } from "@/lib/payment/types";
+import { parseRegistrationMode } from "@/lib/courses/registration-mode";
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -40,6 +41,8 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     coverImage: row.cover_image ?? "",
     isOpen: true,
     allowedPaymentMethods: ["ecpay"],
+    registrationMode: "adult",
+    pricePerStudent: 0,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
@@ -64,6 +67,8 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     coverImage: course.cover_image ?? "",
     isOpen: course.is_open ?? false,
     allowedPaymentMethods: parsePaymentMethods(course.allowed_payment_methods),
+    registrationMode: parseRegistrationMode(course.registration_mode),
+    pricePerStudent: course.price_per_student ?? course.fee ?? 0,
     createdAt: course.created_at ?? new Date().toISOString(),
     updatedAt: course.updated_at ?? new Date().toISOString(),
   };
@@ -107,6 +112,8 @@ export function mapCourseToDb(input: {
   coverImage: string;
   isOpen: boolean;
   allowedPaymentMethods: PaymentMethod[];
+  registrationMode: import("@/lib/courses/registration-mode").RegistrationMode;
+  pricePerStudent: number;
 }): Database["public"]["Tables"]["courses"]["Insert"] {
   return {
     title: input.title,
@@ -119,6 +126,8 @@ export function mapCourseToDb(input: {
     cover_image: input.coverImage,
     is_open: input.isOpen,
     allowed_payment_methods: input.allowedPaymentMethods,
+    registration_mode: input.registrationMode,
+    price_per_student: input.pricePerStudent,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { PaymentMethod } from "@/lib/payment/types";
+import type { RegistrationMode } from "@/lib/courses/registration-mode";
 
 export const COURSE_CATEGORIES = [
   "冬夏令營",
@@ -22,6 +23,8 @@ export type Course = {
   coverImage: string;
   isOpen: boolean;
   allowedPaymentMethods: PaymentMethod[];
+  registrationMode: RegistrationMode;
+  pricePerStudent: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -53,4 +56,6 @@ export type CourseFormInput = {
   coverImage: string;
   isOpen: boolean;
   allowedPaymentMethods: PaymentMethod[];
+  registrationMode: RegistrationMode;
+  pricePerStudent: number;
 };

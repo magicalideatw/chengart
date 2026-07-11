@@ -9,6 +9,11 @@ import {
   PAYMENT_METHOD_LABELS,
   type PaymentMethod,
 } from "@/lib/payment/types";
+import {
+  REGISTRATION_MODES,
+  REGISTRATION_MODE_LABELS,
+  type RegistrationMode,
+} from "@/lib/courses/registration-mode";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -28,6 +33,8 @@ const emptyForm: CourseFormInput = {
   coverImage: "",
   isOpen: true,
   allowedPaymentMethods: ["ecpay"],
+  registrationMode: "adult",
+  pricePerStudent: 0,
 };
 
 const inputClass =
@@ -52,6 +59,8 @@ export function CourseFormModal({
           coverImage: course.coverImage,
           isOpen: course.isOpen,
           allowedPaymentMethods: course.allowedPaymentMethods,
+          registrationMode: course.registrationMode,
+          pricePerStudent: course.pricePerStudent,
         }
       : emptyForm,
   );
@@ -171,6 +180,21 @@ export function CourseFormModal({
                 className={inputClass}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">
+                每位學生價格（NT$）
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={form.pricePerStudent}
+                onChange={(e) => updateField("pricePerStudent", Number(e.target.value))}
+                className={inputClass}
+              />
+              <p className="mt-2 text-xs text-muted">
+                總金額 = 每位學生價格 × 學生數
+              </p>
+            </div>
           </div>
 
           <div>
@@ -193,6 +217,29 @@ export function CourseFormModal({
             />
             開放報名
           </label>
+
+          <div>
+            <p className="text-sm font-medium text-foreground">報名模式</p>
+            <div className="mt-3 space-y-3">
+              {REGISTRATION_MODES.map((mode) => (
+                <label
+                  key={mode}
+                  className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                >
+                  <input
+                    type="radio"
+                    name="registrationMode"
+                    checked={form.registrationMode === mode}
+                    onChange={() =>
+                      updateField("registrationMode", mode as RegistrationMode)
+                    }
+                    className="h-4 w-4 accent-gold"
+                  />
+                  {REGISTRATION_MODE_LABELS[mode]}
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div>
             <p className="text-sm font-medium text-foreground">付款方式</p>

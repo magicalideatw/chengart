@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PAYMENT_METHODS } from "@/lib/payment/types";
+import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
 
 export const registrationStudentSchema = z.object({
   clientId: z.string().optional(),
@@ -26,6 +27,22 @@ export const parentFormSchema = z.object({
 
 export type ParentFormValues = z.infer<typeof parentFormSchema>;
 
+export const adultFormSchema = z.object({
+  name: z.string().min(1, "請填寫姓名"),
+  phone: z
+    .string()
+    .min(1, "請填寫電話")
+    .regex(/^[\d\-+()\s]{8,20}$/, "請輸入有效的電話號碼"),
+  email: z.string().min(1, "請填寫 Email").email("請輸入有效的 Email"),
+  age: z.string().min(1, "請填寫年齡"),
+  gender: z.enum(["", "male", "female", "other"]).optional(),
+  isFirstTime: z.enum(["yes", "no"], { message: "請選擇是否第一次參加" }),
+  note: z.string().optional(),
+  sessionIds: z.array(z.string().uuid()).optional(),
+});
+
+export type AdultFormValues = z.infer<typeof adultFormSchema>;
+
 /** @deprecated use ParentFormValues */
 export const registrationFormSchema = parentFormSchema.extend({
   studentName: z.string().optional(),
@@ -38,6 +55,7 @@ export type RegistrationFormValues = ParentFormValues;
 
 export const registrationOrderFormSchema = parentFormSchema.extend({
   paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  registrationType: z.enum(["adult", "parent"]).optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
   studentName: z.string().optional(),
   studentAge: z.string().optional(),
@@ -70,3 +88,47 @@ export const defaultParentFormValues: ParentFormValues = {
   parentNote: "",
   students: [createDefaultStudent(0)],
 };
+
+export const defaultAdultFormValues: AdultFormValues = {
+  name: "",
+  phone: "",
+  email: "",
+  age: "",
+  gender: "",
+  isFirstTime: "yes",
+  note: "",
+  sessionIds: [],
+};
+
+export function adultFormToOrderData(
+  values: AdultFormValues,
+  registrationType: ActiveRegistrationType = "adult",
+): RegistrationOrderFormValues {
+  return {
+    name: values.name,
+    phone: values.phone,
+    email: values.email,
+    parentNote: values.note,
+    registrationType,
+    students: [
+      {
+        clientId: "adult-self",
+        studentName: values.name,
+        studentAge: values.age,
+        gender: values.gender,
+        isFirstTime: values.isFirstTime,
+        note: values.note,
+        sessionIds: values.sessionIds ?? [],
+      },
+    ],
+  };
+}
+
+export function parentFormToOrderData(
+  values: ParentFormValues,
+): RegistrationOrderFormValues {
+  return {
+    ...values,
+    registrationType: "parent",
+  };
+}

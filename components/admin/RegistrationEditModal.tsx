@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { getAdminCourseSessionOptions } from "@/lib/actions/admin/registrations";
-import { formatSessionDate } from "@/lib/admin/format";
+import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { AdminOrderRegistration, AdminOrderStudent } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
+import {
+  calculateOrderTotal,
+  getEffectivePricePerStudent,
+} from "@/lib/registration/pricing";
 import { createDefaultStudent } from "@/lib/validation/registration-schema";
 
 type SessionOption = {
@@ -113,7 +117,17 @@ export function RegistrationEditModal({
   const [error, setError] = useState<string | null>(null);
 
   const selectedCourse = courses.find((course) => course.id === parentForm.courseId);
-  const canAddStudents = Boolean(registration.order_id);
+  const isAdult = registration.registrationType === "adult";
+  const canAddStudents = Boolean(registration.order_id) && !isAdult;
+  const pricePerStudent = getEffectivePricePerStudent(selectedCourse ?? {});
+  const totalAmount = useMemo(
+    () =>
+      calculateOrderTotal({
+        pricePerStudent,
+        studentCount: students.length,
+      }),
+    [pricePerStudent, students.length],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +189,7 @@ export function RegistrationEditModal({
   };
 
   const removeStudent = (key: string) => {
-    if (students.length <= 1) return;
+    if (isAdult || students.length <= 1) return;
     setStudents((current) => current.filter((student) => student.key !== key));
   };
 
@@ -199,6 +213,13 @@ export function RegistrationEditModal({
     event.preventDefault();
     setError(null);
 
+    const finalStudents = (isAdult
+      ? students.map((student) => ({
+          ...toOrderStudent(student),
+          student_name: parentForm.name,
+        }))
+      : students.map(toOrderStudent));
+
     const updated: AdminOrderRegistration = {
       ...registration,
       course_id: parentForm.courseId,
@@ -208,8 +229,9 @@ export function RegistrationEditModal({
       parent_note: parentForm.parentNote || null,
       courseTitle: selectedCourse?.title ?? registration.courseTitle,
       courseCategory: selectedCourse?.category ?? registration.courseCategory,
-      students: students.map(toOrderStudent),
-      studentCount: students.length,
+      students: finalStudents,
+      studentCount: finalStudents.length,
+      orderAmount: totalAmount,
     };
 
     const result = await onSave(updated, updated.students);
@@ -244,7 +266,9 @@ export function RegistrationEditModal({
 
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
           <section className="space-y-4 rounded-2xl border border-border bg-surface px-5 py-4">
-            <h3 className="text-sm font-medium text-foreground">家長資料</h3>
+            <h3 className="text-sm font-medium text-foreground">
+              {isAdult ? "報名資料" : "家長資料"}
+            </h3>
 
             <div>
               <label className="text-sm font-medium text-foreground">課程</label>
@@ -265,9 +289,13 @@ export function RegistrationEditModal({
             <div className="grid gap-4 sm:grid-cols-2">
               {(
                 [
-                  { key: "name", label: "家長姓名", type: "text" },
-                  { key: "phone", label: "電話", type: "tel" },
-                  { key: "email", label: "Email", type: "email" },
+                  {
+                    key: "name" as const,
+                    label: isAdult ? "姓名" : "家長姓名",
+                    type: "text",
+                  },
+                  { key: "phone" as const, label: "電話", type: "tel" },
+                  { key: "email" as const, label: "Email", type: "email" },
                 ] as const
               ).map((field) => (
                 <div key={field.key}>
@@ -297,9 +325,39 @@ export function RegistrationEditModal({
             </div>
           </section>
 
+          <section className="rounded-2xl border border-border bg-surface px-5 py-4">
+            <dl className="grid gap-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-muted">學生</dt>
+                <dd className="mt-1 font-medium text-foreground">{students.length} 位</dd>
+              </div>
+              <div>
+                <dt className="text-muted">單價</dt>
+                <dd className="mt-1 font-medium text-foreground">
+                  {formatFee(pricePerStudent)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted">總金額</dt>
+                <dd className="mt-1 font-display text-lg font-semibold text-gold">
+                  {formatFee(totalAmount)}
+                </dd>
+              </div>
+            </dl>
+            {registration.orderAmount != null &&
+            registration.orderAmount !== totalAmount ? (
+              <p className="mt-3 text-xs text-muted">
+                原訂單金額 {formatFee(registration.orderAmount)}，儲存後將更新為{" "}
+                {formatFee(totalAmount)}
+              </p>
+            ) : null}
+          </section>
+
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-foreground">報名學生</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                {isAdult ? "學員資料" : "報名學生"}
+              </h3>
               {canAddStudents ? (
                 <button
                   type="button"
@@ -318,8 +376,10 @@ export function RegistrationEditModal({
                 className="space-y-4 rounded-2xl border border-border px-5 py-4"
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-foreground">學生 {index + 1}</h4>
-                  {students.length > 1 ? (
+                  <h4 className="font-medium text-foreground">
+                    {isAdult ? "學員" : `學生 ${index + 1}`}
+                  </h4>
+                  {!isAdult && students.length > 1 ? (
                     <button
                       type="button"
                       onClick={() => removeStudent(student.key)}
@@ -334,33 +394,66 @@ export function RegistrationEditModal({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="text-sm font-medium text-foreground">
-                      學生姓名
+                      {isAdult ? "年齡" : "學生姓名"}
                     </label>
-                    <input
-                      type="text"
-                      value={student.studentName}
-                      onChange={(event) =>
-                        updateStudent(student.key, {
-                          studentName: event.target.value,
-                        })
-                      }
-                      className={inputClass}
-                    />
+                    {isAdult ? (
+                      <input
+                        type="text"
+                        value={student.studentAge}
+                        onChange={(event) =>
+                          updateStudent(student.key, {
+                            studentAge: event.target.value,
+                          })
+                        }
+                        className={inputClass}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={student.studentName}
+                        onChange={(event) =>
+                          updateStudent(student.key, {
+                            studentName: event.target.value,
+                          })
+                        }
+                        className={inputClass}
+                      />
+                    )}
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground">年齡</label>
-                    <input
-                      type="text"
-                      value={student.studentAge}
-                      onChange={(event) =>
-                        updateStudent(student.key, {
-                          studentAge: event.target.value,
-                        })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
+                  {!isAdult ? (
+                    <div>
+                      <label className="text-sm font-medium text-foreground">年齡</label>
+                      <input
+                        type="text"
+                        value={student.studentAge}
+                        onChange={(event) =>
+                          updateStudent(student.key, {
+                            studentAge: event.target.value,
+                          })
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                  ) : null}
                 </div>
+
+                {!isAdult ? (
+                  <div>
+                    <label className="text-sm font-medium text-foreground">性別</label>
+                    <select
+                      value={student.gender}
+                      onChange={(event) =>
+                        updateStudent(student.key, { gender: event.target.value })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">請選擇</option>
+                      <option value="male">男</option>
+                      <option value="female">女</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </div>
+                ) : null}
 
                 <div>
                   <p className="text-sm font-medium text-foreground">是否第一次參加</p>

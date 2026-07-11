@@ -10,7 +10,9 @@ import {
   parseAdminTimeRange,
   trimAdminTime,
 } from "@/lib/admin/format";
+import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
 import { mapCourseRow } from "@/lib/courses/mappers";
+import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { DEFAULT_MAX_CAPACITY } from "@/lib/registrations/availability";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -156,10 +158,32 @@ function buildStudentFromGroup(
   };
 }
 
+function inferRegistrationType(input: {
+  formData?: RegistrationOrderFormData | null;
+  students: AdminOrderStudent[];
+  parentName: string;
+}): ActiveRegistrationType {
+  if (input.formData?.registrationType === "adult") return "adult";
+  if (input.formData?.registrationType === "parent") return "parent";
+
+  if (
+    input.students.length === 1 &&
+    input.students[0]?.student_name.trim() === input.parentName.trim()
+  ) {
+    return "adult";
+  }
+
+  return "parent";
+}
+
 function mergeOrderGroup(
   items: MappedRegistrationRow[],
   course: ReturnType<typeof mapCourseRow> | undefined,
   slotEnrollment: number,
+  orderMeta?: {
+    amount: number | null;
+    formData: RegistrationOrderFormData | null;
+  },
 ): AdminOrderRegistration {
   const sorted = [...items].sort(
     (a, b) =>
@@ -181,6 +205,11 @@ function mergeOrderGroup(
     .sort((a, b) => a.student_name.localeCompare(b.student_name, "zh-Hant"));
 
   const registrationIds = items.map((item) => item.row.id);
+  const registrationType = inferRegistrationType({
+    formData: orderMeta?.formData ?? null,
+    students,
+    parentName: base.parent.name,
+  });
 
   return {
     id: base.parent.order_id ?? registrationIds[0],
@@ -197,6 +226,9 @@ function mergeOrderGroup(
     courseCategory: course?.category ?? "",
     students,
     studentCount: students.length,
+    registrationType,
+    orderAmount: orderMeta?.amount ?? null,
+    studentNames: students.map((student) => student.student_name),
     slotEnrollment,
     maxCapacity: course?.capacity ?? DEFAULT_MAX_CAPACITY,
   };
@@ -206,6 +238,10 @@ export function groupAdminRegistrations(
   rows: RegistrationJoinRow[],
   courseMap: Map<string, ReturnType<typeof mapCourseRow>>,
   slotCounts: Record<string, number>,
+  orderMap?: Map<
+    string,
+    { amount: number | null; formData: RegistrationOrderFormData | null }
+  >,
 ): AdminOrderRegistration[] {
   const mapped = rows.map((row) => {
     const lookupKey = row.course_id ?? row.course_slug ?? "";
@@ -241,7 +277,9 @@ export function groupAdminRegistrations(
     .map((items) => {
       const lookupKey = items[0].parent.course_id;
       const course = courseMap.get(lookupKey);
-      return mergeOrderGroup(items, course, slotCounts[lookupKey] ?? 0);
+      const orderId = items[0].parent.order_id;
+      const orderMeta = orderId ? orderMap?.get(orderId) : undefined;
+      return mergeOrderGroup(items, course, slotCounts[lookupKey] ?? 0, orderMeta);
     })
     .sort(
       (a, b) =>

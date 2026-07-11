@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
+import { REGISTRATION_MODES } from "@/lib/courses/registration-mode";
 import { PAYMENT_METHODS } from "@/lib/payment/types";
 
 export const adminCourseSchema = z.object({
@@ -21,6 +22,8 @@ export const adminCourseSchema = z.object({
   allowedPaymentMethods: z
     .array(z.enum(PAYMENT_METHODS))
     .min(1, "請至少選擇一種付款方式"),
+  registrationMode: z.enum(REGISTRATION_MODES),
+  pricePerStudent: z.coerce.number().int().min(0, "每位學生價格不可為負數"),
 });
 
 export type AdminCourseFormValues = z.infer<typeof adminCourseSchema>;
