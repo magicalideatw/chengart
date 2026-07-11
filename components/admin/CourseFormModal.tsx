@@ -1,22 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, Upload } from "lucide-react";
 import { uploadCourseCover } from "@/lib/actions/admin/courses";
 import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
-import { COURSE_CATEGORIES } from "@/lib/courses/types";
-import type { Course, CourseFormInput } from "@/lib/courses/types";
 import {
-  PAYMENT_METHODS,
-  PAYMENT_METHOD_LABELS,
-  type PaymentMethod,
-} from "@/lib/payment/types";
+  COURSE_CATEGORIES,
+  TRANSFER_DEADLINE_DAY_OPTIONS,
+  type Course,
+  type CourseFormInput,
+} from "@/lib/courses/types";
 import {
   REGISTRATION_MODES,
   REGISTRATION_MODE_LABELS,
   type RegistrationMode,
 } from "@/lib/courses/registration-mode";
+import {
+  PAID_PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+  type PaidPaymentMethod,
+} from "@/lib/payment/types";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -29,19 +33,67 @@ const emptyForm: CourseFormInput = {
   title: "",
   category: "舞蹈",
   description: "",
+  courseDetails: "",
   sessionDate: "",
   sessionTime: "",
   capacity: 5,
-  fee: 0,
   coverImage: "",
   isOpen: true,
   allowedPaymentMethods: ["ecpay"],
   registrationMode: "adult",
   pricePerStudent: 0,
+  registrationDeadline: "",
+  showRemainingCapacity: true,
+  transferDeadlineDays: 7,
 };
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-border bg-surface/40 px-5 py-5">
+      <div>
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        {description ? (
+          <p className="mt-1 text-xs text-muted">{description}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function courseToFormInput(course: Course): CourseFormInput {
+  return {
+    title: course.title,
+    category: course.category,
+    description: course.description,
+    courseDetails: course.courseDetails,
+    sessionDate: course.sessionDate,
+    sessionTime: course.sessionTime,
+    capacity: course.capacity,
+    coverImage: course.coverImage,
+    isOpen: course.isOpen,
+    allowedPaymentMethods: course.allowedPaymentMethods.filter(
+      (method): method is PaidPaymentMethod =>
+        method === "ecpay" || method === "bank_transfer",
+    ),
+    registrationMode: course.registrationMode,
+    pricePerStudent: course.pricePerStudent,
+    registrationDeadline: course.registrationDeadline ?? "",
+    showRemainingCapacity: course.showRemainingCapacity,
+    transferDeadlineDays: course.transferDeadlineDays,
+  };
+}
 
 export function CourseFormModal({
   course,
@@ -50,25 +102,13 @@ export function CourseFormModal({
   isPending,
 }: CourseFormModalProps) {
   const [form, setForm] = useState<CourseFormInput>(
-    course
-      ? {
-          title: course.title,
-          category: course.category,
-          description: course.description,
-          sessionDate: course.sessionDate,
-          sessionTime: course.sessionTime,
-          capacity: course.capacity,
-          fee: course.fee,
-          coverImage: course.coverImage,
-          isOpen: course.isOpen,
-          allowedPaymentMethods: course.allowedPaymentMethods,
-          registrationMode: course.registrationMode,
-          pricePerStudent: course.pricePerStudent,
-        }
-      : emptyForm,
+    course ? courseToFormInput(course) : emptyForm,
   );
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const isFreeCourse = form.pricePerStudent <= 0;
+  const usesBankTransfer = form.allowedPaymentMethods.includes("bank_transfer");
 
   const updateField = <K extends keyof CourseFormInput>(
     key: K,
@@ -76,6 +116,15 @@ export function CourseFormModal({
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
+
+  const paidMethodOptions = useMemo(
+    () =>
+      PAID_PAYMENT_METHODS.map((method) => ({
+        method,
+        label: PAYMENT_METHOD_LABELS[method],
+      })),
+    [],
+  );
 
   const handleCoverUpload = async (file: File | null) => {
     if (!file) return;
@@ -101,7 +150,14 @@ export function CourseFormModal({
     event.preventDefault();
     setError(null);
 
-    const result = await onSubmit(form);
+    const payload: CourseFormInput = {
+      ...form,
+      allowedPaymentMethods: isFreeCourse ? [] : form.allowedPaymentMethods,
+      transferDeadlineDays:
+        isFreeCourse || !usesBankTransfer ? null : form.transferDeadlineDays,
+    };
+
+    const result = await onSubmit(payload);
     if (!result.success) {
       setError(result.error ?? "操作失敗");
     }
@@ -110,8 +166,8 @@ export function CourseFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
-        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-white px-6 py-5">
+      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-border bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white px-6 py-5">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-gold">
               Course
@@ -130,152 +186,102 @@ export function CourseFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
-          <div>
-            <label className="text-sm font-medium text-foreground">課程名稱</label>
-            <input
-              value={form.title}
-              onChange={(e) => updateField("title", e.target.value)}
-              className={inputClass}
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
+          <Section title="基本資訊">
+            <div>
+              <label className="text-sm font-medium text-foreground">課程名稱</label>
+              <input
+                value={form.title}
+                onChange={(e) => updateField("title", e.target.value)}
+                className={inputClass}
+              />
+            </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground">課程分類</label>
-            <select
-              value={form.category}
-              onChange={(e) => updateField("category", e.target.value)}
-              className={inputClass}
-            >
-              {COURSE_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">課程分類</label>
+              <select
+                value={form.category}
+                onChange={(e) => updateField("category", e.target.value)}
+                className={inputClass}
+              >
+                {COURSE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground">課程介紹</label>
-            <textarea
-              rows={4}
-              value={form.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              className={`${inputClass} resize-none`}
-            />
-          </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">課程介紹</label>
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                placeholder="簡短介紹，顯示於列表與頁面頂部"
+                className={`${inputClass} resize-none`}
+              />
+            </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-medium text-foreground">上課日期</label>
-              <input
-                type="date"
-                value={form.sessionDate}
-                onChange={(e) => updateField("sessionDate", e.target.value)}
-                className={inputClass}
+              <label className="text-sm font-medium text-foreground">課程說明</label>
+              <textarea
+                rows={4}
+                value={form.courseDetails}
+                onChange={(e) => updateField("courseDetails", e.target.value)}
+                placeholder="詳細說明（選填），顯示於報名頁"
+                className={`${inputClass} resize-none`}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">上課時間</label>
-              <input
-                value={form.sessionTime}
-                onChange={(e) => updateField("sessionTime", e.target.value)}
-                placeholder="例如 14:00–15:00"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">名額</label>
-              <input
-                type="number"
-                min={1}
-                value={form.capacity}
-                onChange={(e) => updateField("capacity", Number(e.target.value))}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">費用（NT$）</label>
-              <input
-                type="number"
-                min={0}
-                value={form.fee}
-                onChange={(e) => updateField("fee", Number(e.target.value))}
-                className={inputClass}
-              />
-            </div>
+
             <div>
               <label className="text-sm font-medium text-foreground">
-                每位學生價格（NT$）
+                課程圖片（選填）
               </label>
-              <input
-                type="number"
-                min={0}
-                value={form.pricePerStudent}
-                onChange={(e) => updateField("pricePerStudent", Number(e.target.value))}
-                className={inputClass}
-              />
+              <div className="mt-2 flex flex-wrap items-center gap-4">
+                <div className="relative h-24 w-36 overflow-hidden rounded-xl border border-border">
+                  <CourseCoverImage
+                    src={form.coverImage}
+                    alt="課程圖片預覽"
+                    fill={false}
+                    width={144}
+                    height={96}
+                    className="h-full w-full object-cover"
+                    sizes="144px"
+                  />
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface">
+                  <Upload className="h-4 w-4" />
+                  {isUploading ? "上傳中…" : "上傳圖片"}
+                  <input
+                    type="file"
+                    accept={COURSE_COVER_ACCEPT}
+                    className="hidden"
+                    disabled={isUploading || isPending}
+                    onChange={(e) => handleCoverUpload(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {form.coverImage ? (
+                  <button
+                    type="button"
+                    onClick={() => updateField("coverImage", "")}
+                    className="text-sm text-muted transition hover:text-foreground"
+                  >
+                    移除圖片
+                  </button>
+                ) : null}
+              </div>
               <p className="mt-2 text-xs text-muted">
-                總金額 = 每位學生價格 × 學生數
+                支援 JPG、PNG、WebP，最大 30MB
               </p>
             </div>
-          </div>
+          </Section>
 
-          <div>
-            <label className="text-sm font-medium text-foreground">
-              課程圖片（選填）
-            </label>
-            <div className="mt-2 flex flex-wrap items-center gap-4">
-              <div className="relative h-24 w-36 overflow-hidden rounded-xl border border-border">
-                <CourseCoverImage
-                  src={form.coverImage}
-                  alt="課程圖片預覽"
-                  fill={false}
-                  width={144}
-                  height={96}
-                  className="h-full w-full object-cover"
-                  sizes="144px"
-                />
-              </div>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface">
-                <Upload className="h-4 w-4" />
-                {isUploading ? "上傳中…" : "上傳圖片"}
-                <input
-                  type="file"
-                  accept={COURSE_COVER_ACCEPT}
-                  className="hidden"
-                  disabled={isUploading || isPending}
-                  onChange={(e) => handleCoverUpload(e.target.files?.[0] ?? null)}
-                />
-              </label>
-              {form.coverImage ? (
-                <button
-                  type="button"
-                  onClick={() => updateField("coverImage", "")}
-                  className="text-sm text-muted transition hover:text-foreground"
-                >
-                  移除圖片
-                </button>
-              ) : null}
-            </div>
-            <p className="mt-2 text-xs text-muted">
-              支援 JPG、PNG、WebP，最大 30MB
-            </p>
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={form.isOpen}
-              onChange={(e) => updateField("isOpen", e.target.checked)}
-              className="h-4 w-4 accent-gold"
-            />
-            開放報名
-          </label>
-
-          <div>
-            <p className="text-sm font-medium text-foreground">報名模式</p>
-            <div className="mt-3 space-y-3">
+          <Section
+            title="報名設定"
+            description="控制前台報名表單顯示方式"
+          >
+            <div className="space-y-3">
               {REGISTRATION_MODES.map((mode) => (
                 <label
                   key={mode}
@@ -294,40 +300,167 @@ export function CourseFormModal({
                 </label>
               ))}
             </div>
-          </div>
+          </Section>
 
-          <div>
-            <p className="text-sm font-medium text-foreground">付款方式</p>
-            <div className="mt-3 space-y-3">
-              {PAYMENT_METHODS.map((method) => (
-                <label
-                  key={method}
-                  className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.allowedPaymentMethods.includes(method)}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      setForm((current) => {
-                        const next = checked
-                          ? [...new Set([...current.allowedPaymentMethods, method])]
-                          : current.allowedPaymentMethods.filter(
-                              (item) => item !== method,
-                            );
-                        return {
-                          ...current,
-                          allowedPaymentMethods: next as PaymentMethod[],
-                        };
-                      });
-                    }}
-                    className="h-4 w-4 accent-gold"
-                  />
-                  {PAYMENT_METHOD_LABELS[method]}
-                </label>
-              ))}
+          <Section title="價格設定">
+            <div>
+              <label className="text-sm font-medium text-foreground">
+                每人價格（NT$）
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={form.pricePerStudent}
+                onChange={(e) =>
+                  updateField("pricePerStudent", Number(e.target.value))
+                }
+                className={inputClass}
+              />
+              <p className="mt-2 text-xs text-muted">
+                成人模式固定 1 位學生；家長模式總金額 = 每人價格 × 學生數。
+                設為 0 時自動視為免費活動。
+              </p>
             </div>
-          </div>
+          </Section>
+
+          <Section
+            title="付款方式"
+            description="每堂課可獨立設定，價格為 0 時自動免費完成報名"
+          >
+            {isFreeCourse ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                目前為免費活動，不需設定付款方式。
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  {paidMethodOptions.map(({ method, label }) => (
+                    <label
+                      key={method}
+                      className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.allowedPaymentMethods.includes(method)}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setForm((current) => {
+                            const next = checked
+                              ? [...new Set([...current.allowedPaymentMethods, method])]
+                              : current.allowedPaymentMethods.filter(
+                                  (item) => item !== method,
+                                );
+                            return {
+                              ...current,
+                              allowedPaymentMethods: next as PaidPaymentMethod[],
+                            };
+                          });
+                        }}
+                        className="h-4 w-4 accent-gold"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                {usesBankTransfer ? (
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      匯款期限（天數）
+                    </label>
+                    <select
+                      value={form.transferDeadlineDays ?? 7}
+                      onChange={(e) =>
+                        updateField("transferDeadlineDays", Number(e.target.value))
+                      }
+                      className={inputClass}
+                    >
+                      {TRANSFER_DEADLINE_DAY_OPTIONS.map((days) => (
+                        <option key={days} value={days}>
+                          {days} 天
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-muted">
+                      用於銀行轉帳付款頁、訂單頁與 Email 提醒
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </Section>
+
+          <Section title="招生設定">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-foreground">上課日期</label>
+                <input
+                  type="date"
+                  value={form.sessionDate}
+                  onChange={(e) => updateField("sessionDate", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">上課時間</label>
+                <input
+                  value={form.sessionTime}
+                  onChange={(e) => updateField("sessionTime", e.target.value)}
+                  placeholder="例如 14:00–15:00"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">名額</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.capacity}
+                  onChange={(e) => updateField("capacity", Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  報名截止日期
+                </label>
+                <input
+                  type="date"
+                  value={form.registrationDeadline}
+                  onChange={(e) =>
+                    updateField("registrationDeadline", e.target.value)
+                  }
+                  className={inputClass}
+                />
+                <p className="mt-2 text-xs text-muted">留空表示不限截止日期</p>
+              </div>
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.isOpen}
+                onChange={(e) => updateField("isOpen", e.target.checked)}
+                className="h-4 w-4 accent-gold"
+              />
+              開放報名
+            </label>
+
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.showRemainingCapacity}
+                onChange={(e) =>
+                  updateField("showRemainingCapacity", e.target.checked)
+                }
+                className="h-4 w-4 accent-gold"
+              />
+              顯示剩餘名額
+            </label>
+            <p className="text-xs text-muted">
+              若不顯示，前台僅顯示「招生中」或「已額滿」
+            </p>
+          </Section>
 
           {error && (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -345,7 +478,7 @@ export function CourseFormModal({
             </button>
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || isUploading}
               className="rounded-full bg-gold px-6 py-3 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? "儲存中…" : course ? "儲存變更" : "新增課程"}

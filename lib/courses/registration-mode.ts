@@ -7,7 +7,7 @@ export type ActiveRegistrationType = "adult" | "parent";
 export const REGISTRATION_MODE_LABELS: Record<RegistrationMode, string> = {
   adult: "成人個人報名",
   parent: "家長代學生報名",
-  both: "兩種皆可",
+  both: "兩者皆可",
 };
 
 export const ACTIVE_REGISTRATION_TYPE_LABELS: Record<

@@ -7,8 +7,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { createRegistrationOrder } from "@/lib/actions/payment";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
-import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
-import { resolveActiveRegistrationType } from "@/lib/courses/registration-mode";
+import { isCourseRegistrationOpen } from "@/lib/courses/enrollment";
+import {
+  resolveActiveRegistrationType,
+  type ActiveRegistrationType,
+} from "@/lib/courses/registration-mode";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
@@ -32,6 +35,7 @@ import {
   type ParentFormValues,
 } from "@/lib/validation/registration-schema";
 import { CourseRegistrationHero } from "./CourseRegistrationHero";
+import { CourseDetailsSection } from "./CourseDetailsSection";
 import { StepIndicator, StepHeader } from "./StepIndicator";
 import { ParentStudentFormStep } from "./ParentStudentFormStep";
 import { AdultRegistrationFormStep } from "./AdultRegistrationFormStep";
@@ -64,9 +68,11 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     selectedType,
   });
 
-  const canRegister = usesSessions
-    ? course.isOpen && plan.hasSelectableSessions
-    : course.isOpen && !course.isFull;
+  const canRegister = isCourseRegistrationOpen({
+    course,
+    usesSessions,
+    hasSelectableSessions: plan.hasSelectableSessions,
+  });
 
   const parentMethods = useForm<ParentFormValues>({
     resolver: zodResolver(parentFormSchema),
@@ -218,9 +224,10 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
         course={course}
         plan={plan}
         onRegister={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-        canRegister={canRegister}
         registrationMode={course.registrationMode}
       />
+
+      <CourseDetailsSection courseDetails={course.courseDetails} />
 
       {canRegister && (
         <div ref={formRef} id="register" className="scroll-mt-20">

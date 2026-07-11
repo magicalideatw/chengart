@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { canFulfillOrder, isOrderPaid, type OrderRecord } from "@/lib/orders/types";
 import { getCourseWithEnrollment, getEnrollmentCount } from "@/lib/courses/queries";
+import { isBeforeRegistrationDeadline } from "@/lib/courses/enrollment";
 import { sendRegistrationNotifications } from "@/lib/email/send-registration-notifications";
 import { getOrderById, getOrderByMerchantTradeNo, updateOrderStatus } from "@/lib/orders/queries";
 import { validateSessionSelection } from "@/lib/registration/queries";
@@ -464,6 +465,10 @@ export async function fulfillOrderById(orderId: string): Promise<FulfillOrderRes
     return { success: false, error: "課程已關閉" };
   }
 
+  if (!isBeforeRegistrationDeadline(course)) {
+    return { success: false, error: "此課程報名已截止" };
+  }
+
   const paymentMethod = order.payment_method ?? "free";
 
   return completeOrderAfterFulfillment({
@@ -499,6 +504,10 @@ export async function fulfillPaidOrder(input: {
 
   if (!course.isOpen) {
     return { success: false, error: "課程已關閉" };
+  }
+
+  if (!isBeforeRegistrationDeadline(course)) {
+    return { success: false, error: "此課程報名已截止" };
   }
 
   console.log("fulfillPaidOrder", {

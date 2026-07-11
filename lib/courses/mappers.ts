@@ -1,9 +1,12 @@
 import type { Database } from "@/lib/supabase/database.types";
 import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
-import { parsePaymentMethods } from "@/lib/payment/types";
+import { parsePaidPaymentMethods } from "@/lib/payment/types";
 import { parseRegistrationMode } from "@/lib/courses/registration-mode";
-import { normalizeCourseCoverStorageValue, sanitizeCourseCoverForStorage } from "@/lib/courses/cover-image";
+import {
+  normalizeCourseCoverStorageValue,
+  sanitizeCourseCoverForStorage,
+} from "@/lib/courses/cover-image";
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -35,6 +38,7 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     title: row.title ?? "",
     category: LEGACY_CATEGORY_MAP[row.slug] ?? "其他",
     description: row.subtitle ?? "",
+    courseDetails: "",
     sessionDate: "",
     sessionTime: "—",
     capacity: row.max_capacity_per_class ?? 5,
@@ -44,6 +48,9 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     allowedPaymentMethods: ["ecpay"],
     registrationMode: "adult",
     pricePerStudent: 0,
+    registrationDeadline: null,
+    showRemainingCapacity: true,
+    transferDeadlineDays: null,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
@@ -61,15 +68,19 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     title: course.title ?? "",
     category: course.category ?? "其他",
     description: course.description ?? "",
+    courseDetails: course.course_details ?? "",
     sessionDate: course.session_date ?? "",
     sessionTime: course.session_time ?? "—",
     capacity: course.capacity ?? 5,
     fee: course.fee ?? 0,
     coverImage: normalizeCourseCoverStorageValue(course.cover_image),
     isOpen: course.is_open ?? false,
-    allowedPaymentMethods: parsePaymentMethods(course.allowed_payment_methods),
+    allowedPaymentMethods: parsePaidPaymentMethods(course.allowed_payment_methods),
     registrationMode: parseRegistrationMode(course.registration_mode),
     pricePerStudent: course.price_per_student ?? course.fee ?? 0,
+    registrationDeadline: course.registration_deadline ?? null,
+    showRemainingCapacity: course.show_remaining_capacity ?? true,
+    transferDeadlineDays: course.transfer_deadline_days ?? null,
     createdAt: course.created_at ?? new Date().toISOString(),
     updatedAt: course.updated_at ?? new Date().toISOString(),
   };
@@ -82,7 +93,8 @@ export function toCourseListing(course: Course): CourseListing {
     description: course.description,
     category: course.category,
     coverImage: course.coverImage,
-    fee: course.fee,
+    fee: course.pricePerStudent || course.fee,
+    pricePerStudent: course.pricePerStudent,
     href: `/courses/${course.id}`,
     isOpen: course.isOpen,
   };
@@ -102,33 +114,29 @@ export function withEnrollment(
   };
 }
 
-export function mapCourseToDb(input: {
-  title: string;
-  category: string;
-  description: string;
-  sessionDate: string;
-  sessionTime: string;
-  capacity: number;
-  fee: number;
-  coverImage: string;
-  isOpen: boolean;
-  allowedPaymentMethods: PaymentMethod[];
-  registrationMode: import("@/lib/courses/registration-mode").RegistrationMode;
-  pricePerStudent: number;
-}): Database["public"]["Tables"]["courses"]["Insert"] {
+export function mapCourseToDb(
+  input: import("@/lib/courses/types").CourseFormInput,
+): Database["public"]["Tables"]["courses"]["Insert"] {
+  const paidMethods: PaymentMethod[] =
+    input.pricePerStudent <= 0 ? [] : [...input.allowedPaymentMethods];
+
   return {
     title: input.title,
     category: input.category,
     description: input.description,
+    course_details: input.courseDetails.trim(),
     session_date: input.sessionDate,
     session_time: input.sessionTime,
     capacity: input.capacity,
-    fee: input.fee,
+    fee: input.pricePerStudent,
     cover_image: sanitizeCourseCoverForStorage(input.coverImage),
     is_open: input.isOpen,
-    allowed_payment_methods: input.allowedPaymentMethods,
+    allowed_payment_methods: paidMethods,
     registration_mode: input.registrationMode,
     price_per_student: input.pricePerStudent,
+    registration_deadline: input.registrationDeadline.trim() || null,
+    show_remaining_capacity: input.showRemainingCapacity,
+    transfer_deadline_days: input.transferDeadlineDays,
   };
 }
 

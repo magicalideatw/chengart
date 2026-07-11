@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { formatFee } from "@/lib/admin/format";
+import { getCourseById } from "@/lib/courses/queries";
+import { getCourseTransferDeadlineDays } from "@/lib/courses/enrollment";
 import { getOrderById } from "@/lib/orders/queries";
 import { isOrderPaid } from "@/lib/orders/types";
 import { getBankTransferSettings } from "@/lib/settings/queries";
@@ -27,7 +29,14 @@ export default async function BankTransferPage({ params }: BankTransferPageProps
     redirect(`/payment/fail?orderId=${order.id}`);
   }
 
-  const bankSettings = await getBankTransferSettings();
+  const [bankSettings, course] = await Promise.all([
+    getBankTransferSettings(),
+    getCourseById(order.course_id),
+  ]);
+  const transferDeadlineDays = getCourseTransferDeadlineDays(
+    course ?? { transferDeadlineDays: null },
+    bankSettings.transferDeadlineDays,
+  );
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-5 py-16">
@@ -39,7 +48,7 @@ export default async function BankTransferPage({ params }: BankTransferPageProps
           報名成功
         </h1>
         <p className="mt-3 text-sm text-muted">
-          請於 {bankSettings.transferDeadlineDays} 天內完成匯款，匯款完成後請保留收據。
+          請於 {transferDeadlineDays} 天內完成匯款，匯款完成後請保留收據。
         </p>
 
         <dl className="mt-8 space-y-3 rounded-2xl border border-border bg-surface px-5 py-4 text-sm">
@@ -54,6 +63,10 @@ export default async function BankTransferPage({ params }: BankTransferPageProps
           <div className="flex justify-between gap-4">
             <dt className="text-muted">金額</dt>
             <dd className="font-medium text-foreground">{formatFee(order.amount)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted">匯款期限</dt>
+            <dd className="font-medium text-foreground">{transferDeadlineDays} 天內</dd>
           </div>
           <div className="my-2 border-t border-border" />
           <div className="flex justify-between gap-4">

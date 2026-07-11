@@ -3,15 +3,19 @@
 import { motion } from "framer-motion";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
+import {
+  getEnrollmentStatusLabel,
+  isCourseRegistrationOpen,
+} from "@/lib/courses/enrollment";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { RegistrationMode } from "@/lib/courses/registration-mode";
 import type { CourseRegistrationPlan } from "@/lib/registration/queries";
+import { getEffectivePricePerStudent } from "@/lib/registration/pricing";
 
 type CourseRegistrationHeroProps = {
   course: CourseWithEnrollment;
   plan: CourseRegistrationPlan;
   onRegister: () => void;
-  canRegister: boolean;
   registrationMode: RegistrationMode;
 };
 
@@ -19,10 +23,21 @@ export function CourseRegistrationHero({
   course,
   plan,
   onRegister,
-  canRegister,
   registrationMode,
 }: CourseRegistrationHeroProps) {
   const usesSessions = plan.usesSessions;
+  const pricePerStudent = getEffectivePricePerStudent(course);
+  const enrollmentStatus = getEnrollmentStatusLabel({
+    course,
+    usesSessions,
+    hasSelectableSessions: plan.hasSelectableSessions,
+  });
+  const canRegister = isCourseRegistrationOpen({
+    course,
+    usesSessions,
+    hasSelectableSessions: plan.hasSelectableSessions,
+  });
+
   const heroHint =
     registrationMode === "adult"
       ? "請填寫報名資料並選擇上課日期"
@@ -64,7 +79,7 @@ export function CourseRegistrationHero({
                   依班別選擇上課日期
                 </span>
                 <span className="rounded-full border border-white/20 px-3 py-1">
-                  單堂 {formatFee(plan.defaultUnitPrice)} 起
+                  每人 {formatFee(pricePerStudent)}
                 </span>
               </>
             ) : (
@@ -72,14 +87,30 @@ export function CourseRegistrationHero({
                 <span className="rounded-full border border-white/20 px-3 py-1">
                   {formatSessionDate(course.sessionDate)} · {course.sessionTime}
                 </span>
+                {course.showRemainingCapacity ? (
+                  <span className="rounded-full border border-white/20 px-3 py-1">
+                    名額 {course.enrollmentCount}/{course.capacity}
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-white/20 px-3 py-1">
+                    {enrollmentStatus}
+                  </span>
+                )}
                 <span className="rounded-full border border-white/20 px-3 py-1">
-                  名額 {course.enrollmentCount}/{course.capacity}
-                </span>
-                <span className="rounded-full border border-white/20 px-3 py-1">
-                  {formatFee(course.fee)}
+                  {formatFee(pricePerStudent)}
                 </span>
               </>
             )}
+            {!usesSessions && course.showRemainingCapacity ? (
+              <span className="rounded-full border border-white/20 px-3 py-1">
+                {enrollmentStatus}
+              </span>
+            ) : null}
+            {usesSessions && !course.showRemainingCapacity ? (
+              <span className="rounded-full border border-white/20 px-3 py-1">
+                {enrollmentStatus}
+              </span>
+            ) : null}
           </div>
           {canRegister ? (
             usesSessions ? (
@@ -95,11 +126,13 @@ export function CourseRegistrationHero({
             )
           ) : (
             <p className="mt-8 inline-flex rounded-full border border-white/20 bg-black/30 px-6 py-3 text-sm text-white/80">
-              {!course.isOpen
+              {enrollmentStatus === "未開放"
                 ? "目前未開放報名"
-                : usesSessions
-                  ? "目前沒有可報名的上課日期"
-                  : "已額滿"}
+                : enrollmentStatus === "已截止"
+                  ? "報名已截止"
+                  : enrollmentStatus === "已額滿"
+                    ? "已額滿"
+                    : "目前無法報名"}
             </p>
           )}
         </motion.div>

@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { formatFee } from "@/lib/admin/format";
+import { getCourseById } from "@/lib/courses/queries";
+import { getCourseTransferDeadlineDays } from "@/lib/courses/enrollment";
 import { getOrderById } from "@/lib/orders/queries";
 import { isOrderPaid } from "@/lib/orders/types";
 import {
   getPaymentMethodLabel,
   getPaymentStatusLabel,
 } from "@/lib/payment/types";
+import { getBankTransferSettings } from "@/lib/settings/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,23 @@ export default async function PaymentSuccessPage({
   const order = orderId ? await getOrderById(orderId) : null;
   const isPendingView = pending === "1" && order && !isOrderPaid(order);
   const isFree = order?.payment_method === "free";
+  const isBankTransferPending =
+    isPendingView && order?.payment_method === "bank_transfer";
+
+  const [bankSettings, course] = order
+    ? await Promise.all([
+        getBankTransferSettings(),
+        getCourseById(order.course_id),
+      ])
+    : [null, null];
+
+  const transferDeadlineDays =
+    order && bankSettings
+      ? getCourseTransferDeadlineDays(
+          course ?? { transferDeadlineDays: null },
+          bankSettings.transferDeadlineDays,
+        )
+      : null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-5 py-16">
@@ -36,7 +56,9 @@ export default async function PaymentSuccessPage({
         </h1>
         <p className="mt-3 text-sm text-muted">
           {isPendingView
-            ? "您的訂單已建立，請依指示完成匯款。管理員確認收款後，報名才會正式生效。"
+            ? isBankTransferPending && transferDeadlineDays
+              ? `您的訂單已建立，請於 ${transferDeadlineDays} 天內完成匯款。管理員確認收款後，報名才會正式生效。`
+              : "您的訂單已建立，請依指示完成匯款。管理員確認收款後，報名才會正式生效。"
             : isFree
               ? "您的報名已完成，確認信將寄送至您的 Email。"
               : "感謝您的報名，我們已收到您的付款，確認信將寄送至您的 Email。"}

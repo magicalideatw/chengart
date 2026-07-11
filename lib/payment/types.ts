@@ -2,6 +2,10 @@ export const PAYMENT_METHODS = ["free", "ecpay", "bank_transfer"] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export const PAID_PAYMENT_METHODS = ["ecpay", "bank_transfer"] as const;
+
+export type PaidPaymentMethod = (typeof PAID_PAYMENT_METHODS)[number];
+
 export const PAYMENT_STATUSES = [
   "pending",
   "waiting_transfer",
@@ -40,15 +44,27 @@ export function parsePaymentMethods(value: unknown): PaymentMethod[] {
   return methods.length > 0 ? methods : ["ecpay"];
 }
 
+export function parsePaidPaymentMethods(value: unknown): PaidPaymentMethod[] {
+  const methods = parsePaymentMethods(value).filter(
+    (method): method is PaidPaymentMethod =>
+      method === "ecpay" || method === "bank_transfer",
+  );
+
+  return methods.length > 0 ? methods : ["ecpay"];
+}
+
 export function resolveAvailablePaymentMethods(input: {
   allowedMethods: PaymentMethod[];
   totalAmount: number;
 }): PaymentMethod[] {
   if (input.totalAmount <= 0) {
-    return input.allowedMethods.includes("free") ? ["free"] : [];
+    return ["free"];
   }
 
-  return input.allowedMethods.filter((method) => method !== "free");
+  return input.allowedMethods.filter(
+    (method): method is PaidPaymentMethod =>
+      method === "ecpay" || method === "bank_transfer",
+  );
 }
 
 export function resolveDefaultPaymentMethod(

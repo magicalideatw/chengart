@@ -47,7 +47,7 @@ export function CourseCard({ course, index }: CourseCardProps) {
             🏷 {course.category}
           </span>
           <span className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground/70">
-            {formatFee(course.fee)}
+            {formatFee(course.pricePerStudent || course.fee)}
           </span>
         </div>
 

@@ -151,7 +151,7 @@ export function CourseManagement({
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-foreground">
-                          {formatFee(course.fee)}
+                          {formatFee(course.pricePerStudent || course.fee)}
                         </td>
                         <td className="whitespace-nowrap px-4 py-4">
                           <span

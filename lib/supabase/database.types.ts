@@ -28,6 +28,10 @@ export type Database = {
           allowed_payment_methods: Json;
           registration_mode: string;
           price_per_student: number;
+          course_details: string;
+          registration_deadline: string | null;
+          show_remaining_capacity: boolean;
+          transfer_deadline_days: number | null;
           created_at: string;
           updated_at: string;
           slug?: string;
@@ -49,6 +53,10 @@ export type Database = {
           allowed_payment_methods?: Json;
           registration_mode?: string;
           price_per_student?: number;
+          course_details?: string;
+          registration_deadline?: string | null;
+          show_remaining_capacity?: boolean;
+          transfer_deadline_days?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -66,6 +74,10 @@ export type Database = {
           allowed_payment_methods?: Json;
           registration_mode?: string;
           price_per_student?: number;
+          course_details?: string;
+          registration_deadline?: string | null;
+          show_remaining_capacity?: boolean;
+          transfer_deadline_days?: number | null;
           created_at?: string;
           updated_at?: string;
         };

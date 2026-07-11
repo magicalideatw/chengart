@@ -2,6 +2,7 @@
 
 import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
+import { isBeforeRegistrationDeadline } from "@/lib/courses/enrollment";
 import { createOrder } from "@/lib/orders/queries";
 import { fulfillOrderById } from "@/lib/payment/fulfill-order";
 import type { PaymentMethod } from "@/lib/payment/types";
@@ -76,6 +77,10 @@ export async function createRegistrationOrder(
 
   if (!course.isOpen) {
     return { success: false, error: "此課程目前未開放報名" };
+  }
+
+  if (!isBeforeRegistrationDeadline(course)) {
+    return { success: false, error: "此課程報名已截止" };
   }
 
   const orderFormData: RegistrationOrderFormData = parsed.data;
