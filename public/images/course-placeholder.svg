@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" fill="none">
+  <rect width="800" height="500" fill="#F5F1EA"/>
+  <rect x="80" y="80" width="640" height="340" rx="24" fill="#ECE6DC" stroke="#D8CFC0" stroke-width="2"/>
+  <circle cx="320" cy="210" r="48" fill="#C9A962" fill-opacity="0.35"/>
+  <path d="M240 320 L360 220 L460 280 L560 180 L680 320 Z" fill="#C9A962" fill-opacity="0.25"/>
+  <text x="400" y="390" text-anchor="middle" fill="#8A7F72" font-family="system-ui, sans-serif" font-size="28" font-weight="500">_à݇</text>
+</svg>

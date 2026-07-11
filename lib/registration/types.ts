@@ -64,11 +64,10 @@ export function normalizeStudentsFromFormData(
       clientId: "legacy",
       studentName: legacyName,
       studentAge: legacyAge,
-      gender: "",
       isFirstTime: formData.isFirstTime ?? "yes",
       note: formData.note ?? "",
       sessionIds: getSessionIdsFromFormData(formData),
-    },
+    } as OrderStudentInput,
   ];
 }
 

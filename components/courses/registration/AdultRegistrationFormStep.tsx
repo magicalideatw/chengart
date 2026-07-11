@@ -63,6 +63,31 @@ export function AdultRegistrationFormStep({
 
           <div className="sm:col-span-2">
             <p className="text-sm font-medium text-foreground">
+              性別 <span className="text-gold">*</span>
+            </p>
+            <div className="mt-3 flex gap-4">
+              {(["male", "female"] as const).map((value) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                >
+                  <input
+                    type="radio"
+                    value={value}
+                    {...register("gender")}
+                    className="h-4 w-4 accent-gold"
+                  />
+                  {value === "male" ? "男" : "女"}
+                </label>
+              ))}
+            </div>
+            {errors.gender ? (
+              <p className="mt-1 text-xs text-red-600">{errors.gender.message}</p>
+            ) : null}
+          </div>
+
+          <div className="sm:col-span-2">
+            <p className="text-sm font-medium text-foreground">
               是否第一次參加 <span className="text-gold">*</span>
             </p>
             <div className="mt-3 flex gap-4">

@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { PAYMENT_METHODS } from "@/lib/payment/types";
 import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
+import { genderSchema } from "@/lib/registration/gender";
 
 export const registrationStudentSchema = z.object({
   clientId: z.string().optional(),
   studentName: z.string().min(1, "請填寫學生姓名"),
   studentAge: z.string().min(1, "請填寫年齡"),
-  gender: z.enum(["", "male", "female", "other"]).optional(),
+  gender: genderSchema,
   isFirstTime: z.enum(["yes", "no"], { message: "請選擇是否第一次參加" }),
   note: z.string().optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
@@ -35,7 +36,7 @@ export const adultFormSchema = z.object({
     .regex(/^[\d\-+()\s]{8,20}$/, "請輸入有效的電話號碼"),
   email: z.string().min(1, "請填寫 Email").email("請輸入有效的 Email"),
   age: z.string().min(1, "請填寫年齡"),
-  gender: z.enum(["", "male", "female", "other"]).optional(),
+  gender: genderSchema,
   isFirstTime: z.enum(["yes", "no"], { message: "請選擇是否第一次參加" }),
   note: z.string().optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
@@ -74,31 +75,29 @@ export function createDefaultStudent(
     clientId: `student-${index + 1}`,
     studentName: "",
     studentAge: "",
-    gender: "",
     isFirstTime: "yes",
     note: "",
     sessionIds: [],
-  };
+  } as unknown as RegistrationStudentInput;
 }
 
-export const defaultParentFormValues: ParentFormValues = {
+export const defaultParentFormValues = {
   name: "",
   phone: "",
   email: "",
   parentNote: "",
   students: [createDefaultStudent(0)],
-};
+} as ParentFormValues;
 
-export const defaultAdultFormValues: AdultFormValues = {
+export const defaultAdultFormValues = {
   name: "",
   phone: "",
   email: "",
   age: "",
-  gender: "",
-  isFirstTime: "yes",
+  isFirstTime: "yes" as const,
   note: "",
-  sessionIds: [],
-};
+  sessionIds: [] as string[],
+} as AdultFormValues;
 
 export function adultFormToOrderData(
   values: AdultFormValues,

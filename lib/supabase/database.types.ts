@@ -23,7 +23,7 @@ export type Database = {
           session_time: string;
           capacity: number;
           fee: number;
-          cover_image: string;
+          cover_image: string | null;
           is_open: boolean;
           allowed_payment_methods: Json;
           registration_mode: string;
@@ -44,7 +44,7 @@ export type Database = {
           session_time: string;
           capacity?: number;
           fee?: number;
-          cover_image: string;
+          cover_image: string | null;
           is_open?: boolean;
           allowed_payment_methods?: Json;
           registration_mode?: string;
@@ -61,7 +61,7 @@ export type Database = {
           session_time?: string;
           capacity?: number;
           fee?: number;
-          cover_image?: string;
+          cover_image?: string | null;
           is_open?: boolean;
           allowed_payment_methods?: Json;
           registration_mode?: string;
@@ -469,7 +469,7 @@ export type Database = {
           slug: string;
           title: string;
           subtitle: string;
-          cover_image: string;
+          cover_image: string | null;
           event_type: string;
           status: string;
           start_date: string;

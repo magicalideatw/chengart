@@ -4,6 +4,7 @@ import { CourseRegistrationFlow } from "@/components/courses/registration/Course
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
+import { resolveCourseCoverSrc } from "@/lib/courses/cover-image";
 import { siteConfig } from "@/lib/data/site";
 import { getCourseRegistrationPlan } from "@/lib/registration/queries";
 
@@ -23,13 +24,17 @@ export async function generateMetadata({
     return { title: "課程不存在" };
   }
 
+  const coverImage = resolveCourseCoverSrc(course.coverImage);
+
   return {
     title: `${course.title} | ${siteConfig.name}`,
     description: course.description,
     openGraph: {
       title: course.title,
       description: course.description,
-      images: [{ url: course.coverImage, width: 1200, height: 630 }],
+      ...(coverImage
+        ? { images: [{ url: coverImage, width: 1200, height: 630 }] }
+        : {}),
     },
   };
 }

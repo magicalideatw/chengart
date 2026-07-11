@@ -123,7 +123,7 @@ export function mapCourseToDb(input: {
     session_time: input.sessionTime,
     capacity: input.capacity,
     fee: input.fee,
-    cover_image: input.coverImage,
+    cover_image: input.coverImage.trim() || null,
     is_open: input.isOpen,
     allowed_payment_methods: input.allowedPaymentMethods,
     registration_mode: input.registrationMode,

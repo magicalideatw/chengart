@@ -8,6 +8,7 @@ import {
   updateOrderRegistration,
 } from "@/lib/actions/admin/registrations";
 import { formatCourseLabel, formatDateTime } from "@/lib/admin/format";
+import { formatGender, normalizeGenderValue } from "@/lib/registration/gender";
 import type { AdminOrderRegistration } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
 import { AdminSearchBar } from "./AdminSearchBar";
@@ -194,7 +195,7 @@ export function RegistrationTable({
         id: student.id.startsWith("legacy:") ? undefined : student.id,
         studentName: student.student_name,
         studentAge: student.student_age,
-        gender: student.gender ?? "",
+        gender: normalizeGenderValue(student.gender) ?? student.gender ?? "",
         isFirstTime: student.is_first_time,
         note: student.note ?? "",
         sessionIds: student.sessions
@@ -362,7 +363,8 @@ export function RegistrationTable({
                                         學生 {index + 1}：{student.student_name}
                                       </p>
                                       <p className="text-sm text-muted">
-                                        {student.student_age} 歲
+                                        {student.student_age} 歲 · 性別{" "}
+                                        {formatGender(student.gender)}
                                         {student.is_first_time ? " · 第一次參加" : ""}
                                       </p>
                                     </div>

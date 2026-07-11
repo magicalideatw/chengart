@@ -6,6 +6,7 @@ import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment/types";
+import { formatGender } from "@/lib/registration/gender";
 
 type ConfirmStepProps = {
   courseTitle: string;
@@ -106,6 +107,7 @@ export function ConfirmStep({
             <p className="font-medium text-foreground">{formData.students[0]?.studentName || "—"}</p>
             <p className="mt-1 text-sm text-muted">
               年齡 {formData.students[0]?.studentAge || "—"} ·{" "}
+              性別 {formatGender(formData.students[0]?.gender)} ·{" "}
               {formData.students[0]?.isFirstTime === "yes"
                 ? "第一次參加"
                 : "非第一次參加"}
@@ -134,7 +136,7 @@ export function ConfirmStep({
                   學生 {index + 1}：{student.studentName || "—"}
                 </p>
                 <p className="mt-1 text-sm text-muted">
-                  年齡 {student.studentAge || "—"} ·{" "}
+                  年齡 {student.studentAge || "—"} · 性別 {formatGender(student.gender)} ·{" "}
                   {student.isFirstTime === "yes" ? "第一次參加" : "非第一次參加"}
                 </p>
                 {student.note?.trim() ? (

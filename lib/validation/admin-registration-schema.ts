@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { genderSchema } from "@/lib/registration/gender";
 
 export const adminOrderStudentSchema = z.object({
   id: z.string().uuid().optional(),
   studentName: z.string().min(1, "請填寫學生姓名"),
   studentAge: z.string().min(1, "請填寫年齡"),
-  gender: z.string().optional(),
+  gender: genderSchema,
   isFirstTime: z.boolean(),
   note: z.string(),
   sessionIds: z.array(z.string().uuid()),

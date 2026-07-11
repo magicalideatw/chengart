@@ -11,6 +11,10 @@ import {
   getEffectivePricePerStudent,
 } from "@/lib/registration/pricing";
 import { createDefaultStudent } from "@/lib/validation/registration-schema";
+import {
+  isGenderValue,
+  normalizeGenderValue,
+} from "@/lib/registration/gender";
 
 type SessionOption = {
   id: string;
@@ -46,7 +50,7 @@ type EditableStudent = {
   id?: string;
   studentName: string;
   studentAge: string;
-  gender: string;
+  gender: "male" | "female" | "";
   isFirstTime: boolean;
   note: string;
   sessionIds: string[];
@@ -62,7 +66,7 @@ function toEditableStudent(student: AdminOrderStudent, index: number): EditableS
     id: student.id.startsWith("legacy:") ? undefined : student.id,
     studentName: student.student_name,
     studentAge: student.student_age,
-    gender: student.gender ?? "",
+    gender: normalizeGenderValue(student.gender) ?? "",
     isFirstTime: student.is_first_time,
     note: student.note ?? "",
     sessionIds: student.sessions
@@ -179,7 +183,7 @@ export function RegistrationEditModal({
         key: `new-${Date.now()}`,
         studentName: next.studentName,
         studentAge: next.studentAge,
-        gender: next.gender ?? "",
+        gender: "",
         isFirstTime: next.isFirstTime === "yes",
         note: next.note ?? "",
         sessionIds: [],
@@ -212,6 +216,12 @@ export function RegistrationEditModal({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    const missingGender = students.some((student) => !isGenderValue(student.gender));
+    if (missingGender) {
+      setError("請為每位學生選擇性別");
+      return;
+    }
 
     const finalStudents = (isAdult
       ? students.map((student) => ({
@@ -420,40 +430,50 @@ export function RegistrationEditModal({
                       />
                     )}
                   </div>
-                  {!isAdult ? (
-                    <div>
-                      <label className="text-sm font-medium text-foreground">年齡</label>
-                      <input
-                        type="text"
-                        value={student.studentAge}
-                        onChange={(event) =>
-                          updateStudent(student.key, {
-                            studentAge: event.target.value,
-                          })
-                        }
-                        className={inputClass}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-
                 {!isAdult ? (
                   <div>
-                    <label className="text-sm font-medium text-foreground">性別</label>
-                    <select
-                      value={student.gender}
+                    <label className="text-sm font-medium text-foreground">年齡</label>
+                    <input
+                      type="text"
+                      value={student.studentAge}
                       onChange={(event) =>
-                        updateStudent(student.key, { gender: event.target.value })
+                        updateStudent(student.key, {
+                          studentAge: event.target.value,
+                        })
                       }
                       className={inputClass}
-                    >
-                      <option value="">請選擇</option>
-                      <option value="male">男</option>
-                      <option value="female">女</option>
-                      <option value="other">其他</option>
-                    </select>
+                    />
                   </div>
                 ) : null}
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    性別 <span className="text-gold">*</span>
+                  </p>
+                  <div className="mt-3 flex gap-4">
+                    {(["male", "female"] as const).map((value) => (
+                      <label
+                        key={value}
+                        className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                      >
+                        <input
+                          type="radio"
+                          name={`gender-${student.key}`}
+                          checked={student.gender === value}
+                          onChange={() =>
+                            updateStudent(student.key, { gender: value })
+                          }
+                          className="h-4 w-4 accent-gold"
+                        />
+                        {value === "male" ? "男" : "女"}
+                      </label>
+                    ))}
+                  </div>
+                  {!student.gender ? (
+                    <p className="mt-1 text-xs text-muted">請選擇性別</p>
+                  ) : null}
+                </div>
 
                 <div>
                   <p className="text-sm font-medium text-foreground">是否第一次參加</p>

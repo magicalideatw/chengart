@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
+import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { RegistrationMode } from "@/lib/courses/registration-mode";
@@ -33,12 +33,10 @@ export function CourseRegistrationHero({
   return (
     <section className="relative">
       <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-[21/9]">
-        <Image
+        <CourseCoverImage
           src={course.coverImage}
           alt={course.title}
-          fill
           priority
-          className="object-cover"
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/25 to-black/10" />

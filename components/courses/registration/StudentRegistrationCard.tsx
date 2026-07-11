@@ -84,16 +84,30 @@ export function StudentRegistrationCard({
         </div>
 
         <div>
-          <label className="text-sm font-medium text-foreground">性別</label>
-          <select
-            {...register(`students.${index}.gender`)}
-            className={inputClass}
-          >
-            <option value="">不填</option>
-            <option value="male">男</option>
-            <option value="female">女</option>
-            <option value="other">其他</option>
-          </select>
+          <p className="text-sm font-medium text-foreground">
+            性別 <span className="text-gold">*</span>
+          </p>
+          <div className="mt-3 flex gap-4">
+            {(["male", "female"] as const).map((value) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+              >
+                <input
+                  type="radio"
+                  value={value}
+                  {...register(`students.${index}.gender`)}
+                  className="h-4 w-4 accent-gold"
+                />
+                {value === "male" ? "男" : "女"}
+              </label>
+            ))}
+          </div>
+          {studentErrors?.gender ? (
+            <p className="mt-1 text-xs text-red-600">
+              {studentErrors.gender.message}
+            </p>
+          ) : null}
         </div>
 
         <div>

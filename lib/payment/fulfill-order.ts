@@ -308,6 +308,31 @@ async function fulfillStudentsOrder(input: {
 
         const decremented = await decrementSessionCapacity(sessionId);
         if (!decremented) {
+          const debugSupabase = createPaymentClient();
+          const { data: dbSessions } = await debugSupabase
+            .from("sessions")
+            .select("id, remaining_capacity, status")
+            .in("id", studentSessionIds.length > 0 ? studentSessionIds : [sessionId]);
+          const { data: failedSession } = await debugSupabase
+            .from("sessions")
+            .select("id, remaining_capacity, status")
+            .eq("id", sessionId)
+            .maybeSingle();
+
+          console.log("Selected Session IDs:", sessionIds);
+          console.log("DB Sessions:", dbSessions);
+          console.log("Unavailable Sessions:", [sessionId]);
+          console.log("Capacity Check:", {
+            sessionId,
+            decremented,
+            studentSessionIds,
+            failedSession,
+            updateBlocked:
+              !failedSession ||
+              failedSession.remaining_capacity <= 0 ||
+              failedSession.status !== "open",
+          });
+
           return {
             success: false,
             error: "上課日期名額已變動，請聯絡管理員",

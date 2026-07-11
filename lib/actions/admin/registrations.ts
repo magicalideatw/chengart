@@ -437,7 +437,7 @@ export async function updateOrderRegistration(
       clientId: existingFormData.students?.[index]?.clientId ?? `student-${index + 1}`,
       studentName: student.studentName,
       studentAge: student.studentAge,
-      gender: (student.gender?.trim() || "") as "" | "male" | "female" | "other",
+      gender: (student.gender?.trim() || "") as "male" | "female",
       isFirstTime: student.isFirstTime ? ("yes" as const) : ("no" as const),
       note: student.note?.trim() || "",
       sessionIds: student.sessionIds,

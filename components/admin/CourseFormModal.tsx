@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Upload } from "lucide-react";
+import Image from "next/image";
+import { uploadCourseCover } from "@/lib/actions/admin/courses";
+import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
+import { getCourseCoverDisplaySrc } from "@/lib/courses/cover-image";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
 import type { Course, CourseFormInput } from "@/lib/courses/types";
 import {
@@ -65,12 +69,33 @@ export function CourseFormModal({
       : emptyForm,
   );
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const updateField = <K extends keyof CourseFormInput>(
     key: K,
     value: CourseFormInput[K],
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleCoverUpload = async (file: File | null) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const result = await uploadCourseCover(formData);
+    setIsUploading(false);
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+
+    updateField("coverImage", result.url);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -198,14 +223,43 @@ export function CourseFormModal({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">封面圖片 URL</label>
-            <input
-              type="url"
-              value={form.coverImage}
-              onChange={(e) => updateField("coverImage", e.target.value)}
-              placeholder="https://..."
-              className={inputClass}
-            />
+            <label className="text-sm font-medium text-foreground">
+              課程圖片（選填）
+            </label>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <div className="relative h-24 w-36 overflow-hidden rounded-xl border border-border">
+                <Image
+                  src={getCourseCoverDisplaySrc(form.coverImage)}
+                  alt="課程圖片預覽"
+                  fill
+                  className="object-cover"
+                  sizes="144px"
+                />
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-surface">
+                <Upload className="h-4 w-4" />
+                {isUploading ? "上傳中…" : "上傳圖片"}
+                <input
+                  type="file"
+                  accept={COURSE_COVER_ACCEPT}
+                  className="hidden"
+                  disabled={isUploading || isPending}
+                  onChange={(e) => handleCoverUpload(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {form.coverImage ? (
+                <button
+                  type="button"
+                  onClick={() => updateField("coverImage", "")}
+                  className="text-sm text-muted transition hover:text-foreground"
+                >
+                  移除圖片
+                </button>
+              ) : null}
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              支援 JPG、PNG、WebP，最大 30MB
+            </p>
           </div>
 
           <label className="flex cursor-pointer items-center gap-3 text-sm text-foreground">
