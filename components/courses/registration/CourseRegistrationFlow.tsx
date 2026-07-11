@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +39,8 @@ const sessionSteps = ["選擇上課日期", "填寫資料", "確認並付款"];
 
 export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowProps) {
   const formRef = useRef<HTMLDivElement>(null);
+  const selectedSessionIdsRef = useRef<string[]>([]);
+  const isSubmittingOrderRef = useRef(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [showForm, setShowForm] = useState(!plan.usesSessions);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -107,12 +109,18 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
   }, []);
 
   const toggleSession = useCallback((sessionId: string) => {
-    setSelectedSessionIds((current) =>
-      current.includes(sessionId)
+    setSelectedSessionIds((current) => {
+      const next = current.includes(sessionId)
         ? current.filter((id) => id !== sessionId)
-        : [...current, sessionId],
-    );
+        : [...current, sessionId];
+      selectedSessionIdsRef.current = next;
+      return next;
+    });
   }, []);
+
+  useEffect(() => {
+    selectedSessionIdsRef.current = selectedSessionIds;
+  }, [selectedSessionIds]);
 
   const handleStartRegistration = () => {
     if (usesSessions && selectedSessionIds.length === 0) return;
@@ -134,21 +142,39 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
   });
 
   const handleConfirmRegistration = () => {
+    if (isPending || isSubmittingOrderRef.current) return;
+
     setErrorMessage(null);
 
+    const sessionIds = usesSessions ? [...selectedSessionIdsRef.current] : [];
+
+    if (usesSessions && sessionIds.length === 0) {
+      setErrorMessage("請至少選擇一堂上課日期");
+      return;
+    }
+
+    isSubmittingOrderRef.current = true;
+
     startTransition(async () => {
-      const result = await createRegistrationOrder({
-        courseId: course.id,
-        formData: methods.getValues(),
-        sessionIds: usesSessions ? selectedSessionIds : undefined,
-      });
+      try {
+        const result = await createRegistrationOrder({
+          courseId: course.id,
+          formData: {
+            ...methods.getValues(),
+            sessionIds: usesSessions ? sessionIds : undefined,
+          },
+          sessionIds: usesSessions ? sessionIds : undefined,
+        });
 
-      if (result.success) {
-        router.push(result.checkoutPath);
-        return;
+        if (result.success) {
+          router.push(result.checkoutPath);
+          return;
+        }
+
+        setErrorMessage(result.error);
+      } finally {
+        isSubmittingOrderRef.current = false;
       }
-
-      setErrorMessage(result.error);
     });
   };
 

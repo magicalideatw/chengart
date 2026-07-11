@@ -3,17 +3,20 @@
 import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { createPendingOrder } from "@/lib/orders/queries";
-import { validateSessionSelection } from "@/lib/registration/queries";
-import type { RegistrationOrderFormData } from "@/lib/registration/types";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import {
-  registrationFormSchema,
-  type RegistrationFormValues,
-} from "@/lib/validation/registration-schema";
+  getCourseRegistrationPlan,
+  validateSessionSelection,
+} from "@/lib/registration/queries";
+import {
+  resolveOrderSessionIds,
+  type RegistrationOrderFormData,
+} from "@/lib/registration/types";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { registrationOrderFormSchema } from "@/lib/validation/registration-schema";
 
 export type CreateRegistrationOrderInput = {
   courseId: string;
-  formData: RegistrationFormValues;
+  formData: RegistrationOrderFormData;
   sessionIds?: string[];
 };
 
@@ -24,7 +27,7 @@ export type CreateRegistrationOrderResult =
 export async function createRegistrationOrder(
   input: CreateRegistrationOrderInput,
 ): Promise<CreateRegistrationOrderResult> {
-  const parsed = registrationFormSchema.safeParse(input.formData);
+  const parsed = registrationOrderFormSchema.safeParse(input.formData);
 
   if (!parsed.success) {
     return {
@@ -52,7 +55,21 @@ export async function createRegistrationOrder(
     return { success: false, error: "此課程目前未開放報名" };
   }
 
-  const sessionIds = input.sessionIds?.filter(Boolean) ?? [];
+  const sessionIds = resolveOrderSessionIds({
+    formData: {
+      ...parsed.data,
+      sessionIds: parsed.data.sessionIds ?? input.formData.sessionIds,
+    },
+    sessionIds: input.sessionIds,
+  });
+
+  const plan = await getCourseRegistrationPlan(course.id);
+  const usesSessions = plan?.usesSessions ?? false;
+
+  if (usesSessions && sessionIds.length === 0) {
+    return { success: false, error: "請至少選擇一堂上課日期" };
+  }
+
   let amount = course.fee;
   let orderFormData: RegistrationOrderFormData = parsed.data;
 

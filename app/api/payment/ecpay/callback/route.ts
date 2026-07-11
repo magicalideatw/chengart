@@ -26,6 +26,8 @@ export async function POST(request: Request) {
   const merchantTradeNo = params.MerchantTradeNo;
 
   if (rtnCode === "1") {
+    console.log("ECPay callback payment success", { merchantTradeNo });
+
     const result = await fulfillPaidOrder({
       merchantTradeNo,
       ecpayTradeNo: params.TradeNo ?? null,

@@ -14,3 +14,11 @@ export const registrationFormSchema = z.object({
 });
 
 export type RegistrationFormValues = z.infer<typeof registrationFormSchema>;
+
+export const registrationOrderFormSchema = registrationFormSchema.extend({
+  sessionIds: z.array(z.string().uuid()).optional(),
+});
+
+export type RegistrationOrderFormValues = z.infer<
+  typeof registrationOrderFormSchema
+>;
