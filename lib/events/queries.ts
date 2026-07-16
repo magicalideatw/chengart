@@ -46,6 +46,25 @@ export async function getAllEvents(): Promise<EventRecord[]> {
   return events ?? [];
 }
 
+export async function getEventById(id: string): Promise<EventRecord | null> {
+  if (!isSupabaseConfigured() || !id) return null;
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "PGRST205") return null;
+    console.error("Failed to fetch event by id:", error.message);
+    return null;
+  }
+
+  return data ? mapEventRow(data) : null;
+}
+
 export async function getHomepageEvents(): Promise<EventHomepageItem[]> {
   const events = await fetchAllEvents();
 

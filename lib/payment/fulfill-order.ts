@@ -1,10 +1,16 @@
 import { revalidatePath } from "next/cache";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { canFulfillOrder, isOrderPaid, type OrderRecord } from "@/lib/orders/types";
-import { getCourseWithEnrollment, getEnrollmentCount } from "@/lib/courses/queries";
+import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { isBeforeRegistrationDeadline } from "@/lib/courses/enrollment";
-import { sendRegistrationNotifications } from "@/lib/email/send-registration-notifications";
+import {
+  notifyParentPaymentConfirmed,
+  notifyParentPaymentSuccess,
+  notifyParentRegistrationSuccess,
+} from "@/lib/email/dispatch";
 import { getOrderById, getOrderByMerchantTradeNo, updateOrderStatus } from "@/lib/orders/queries";
+import { isPerformanceOrderFormData } from "@/lib/orders/order-form-data";
+import { deriveOrderFulfillmentStatus } from "@/lib/orders/order-status";
 import { validateSessionSelection } from "@/lib/registration/queries";
 import {
   getSessionIdsFromFormData,
@@ -118,8 +124,14 @@ async function insertPaidRegistration(input: {
       sessionId: input.sessionId ?? null,
       studentId: input.studentId,
     });
+    console.log("[insertPaidRegistration]", {
+      success: true,
+      registrationId: data.id,
+    });
     return { success: true, id: data.id };
   }
+
+  console.error("[insertPaidRegistration FAILED]", error);
 
   if (input.sessionId || input.studentId) {
     if (error?.message.includes("CLASS_FULL")) {
@@ -166,49 +178,15 @@ async function insertPaidRegistration(input: {
     .single();
 
   if (legacyResult.error || !legacyResult.data?.id) {
+    console.error("[insertPaidRegistration FAILED]", legacyResult.error);
     return { success: false, error: "建立報名紀錄失敗" };
   }
 
+  console.log("[insertPaidRegistration]", {
+    success: true,
+    registrationId: legacyResult.data.id,
+  });
   return { success: true, id: legacyResult.data.id };
-}
-
-async function decrementSessionCapacity(sessionId: string): Promise<boolean> {
-  const supabase = createPaymentClient();
-
-  const { data: session, error: fetchError } = await supabase
-    .from("sessions")
-    .select("id, remaining_capacity, status")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (fetchError || !session) {
-    console.error("Failed to fetch session for capacity update:", fetchError?.message);
-    return false;
-  }
-
-  if (session.remaining_capacity <= 0 || session.status !== "open") {
-    return false;
-  }
-
-  const nextRemaining = session.remaining_capacity - 1;
-  const { data, error } = await supabase
-    .from("sessions")
-    .update({
-      remaining_capacity: nextRemaining,
-      status: nextRemaining <= 0 ? "full" : session.status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId)
-    .eq("remaining_capacity", session.remaining_capacity)
-    .select("id")
-    .maybeSingle();
-
-  if (error || !data) {
-    console.error("Failed to decrement session capacity:", error?.message);
-    return false;
-  }
-
-  return true;
 }
 
 async function fulfillStudentsOrder(input: {
@@ -306,40 +284,6 @@ async function fulfillStudentsOrder(input: {
         }
 
         registrationIds.push(registration.id);
-
-        const decremented = await decrementSessionCapacity(sessionId);
-        if (!decremented) {
-          const debugSupabase = createPaymentClient();
-          const { data: dbSessions } = await debugSupabase
-            .from("sessions")
-            .select("id, remaining_capacity, status")
-            .in("id", studentSessionIds.length > 0 ? studentSessionIds : [sessionId]);
-          const { data: failedSession } = await debugSupabase
-            .from("sessions")
-            .select("id, remaining_capacity, status")
-            .eq("id", sessionId)
-            .maybeSingle();
-
-          console.log("Selected Session IDs:", sessionIds);
-          console.log("DB Sessions:", dbSessions);
-          console.log("Unavailable Sessions:", [sessionId]);
-          console.log("Capacity Check:", {
-            sessionId,
-            decremented,
-            studentSessionIds,
-            failedSession,
-            updateBlocked:
-              !failedSession ||
-              failedSession.remaining_capacity <= 0 ||
-              failedSession.status !== "open",
-          });
-
-          return {
-            success: false,
-            error: "上課日期名額已變動，請聯絡管理員",
-            registrationIds,
-          };
-        }
       }
     } else {
       const registration = await insertPaidRegistration({
@@ -371,10 +315,15 @@ async function fulfillStudentsOrder(input: {
     registrationIds,
   });
 
+  console.log("[fulfillStudentsOrder]", {
+    success: true,
+    registrationIds,
+  });
+
   return { success: true, registrationIds };
 }
 
-async function completeOrderAfterFulfillment(input: {
+async function completePerformanceOrderAfterFulfillment(input: {
   order: OrderRecord;
   paymentMethod: PaymentMethod;
   ecpayTradeNo?: string | null;
@@ -382,6 +331,94 @@ async function completeOrderAfterFulfillment(input: {
   const course = await getCourseWithEnrollment(input.order.course_id);
 
   if (!course) {
+    return { success: false, error: "找不到活動" };
+  }
+
+  const paidAt = new Date().toISOString();
+  const updated = await updateOrderStatus(input.order.id, {
+    status: "paid",
+    order_status: "completed",
+    payment_status: "paid",
+    payment_method: input.paymentMethod,
+    ecpay_trade_no: input.ecpayTradeNo ?? input.order.ecpay_trade_no,
+    registration_id: null,
+    paid_at: paidAt,
+  });
+
+  if (!updated) {
+    return { success: false, error: "更新訂單失敗" };
+  }
+
+  revalidatePath(`/courses/${input.order.course_id}`);
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/orders");
+
+  try {
+    const paidOrder: OrderRecord = {
+      ...input.order,
+      order_status: "completed",
+      payment_status: "paid",
+      status: "paid",
+      payment_method: input.paymentMethod,
+      ecpay_trade_no: input.ecpayTradeNo ?? input.order.ecpay_trade_no,
+      registration_id: null,
+      paid_at: paidAt,
+    };
+
+    if (input.paymentMethod === "free") {
+      await notifyParentRegistrationSuccess({
+        order: paidOrder,
+        course,
+      });
+    } else if (input.paymentMethod === "ecpay") {
+      await notifyParentPaymentSuccess({
+        order: paidOrder,
+        course,
+      });
+    } else if (input.paymentMethod === "bank_transfer") {
+      await notifyParentPaymentConfirmed({
+        order: paidOrder,
+        course,
+      });
+    }
+  } catch (error) {
+    console.error("Performance order email notification failed:", error);
+  }
+
+  return { success: true, alreadyPaid: false };
+}
+
+async function completeOrderAfterFulfillment(input: {
+  order: OrderRecord;
+  paymentMethod: PaymentMethod;
+  ecpayTradeNo?: string | null;
+}): Promise<FulfillOrderResult> {
+  const isPerformance = isPerformanceOrderFormData(input.order.form_data);
+  console.log(
+    "[completeOrderAfterFulfillment] isPerformanceOrderFormData(order.form_data):",
+    isPerformance,
+  );
+  if (!isPerformance) {
+    console.log(
+      "[completeOrderAfterFulfillment] form_data (full JSON):",
+      JSON.stringify(input.order.form_data, null, 2),
+    );
+  }
+
+  if (isPerformance) {
+    return completePerformanceOrderAfterFulfillment(input);
+  }
+
+  const course = await getCourseWithEnrollment(input.order.course_id);
+
+  if (!course) {
+    console.log("[completeOrderAfterFulfillment]", {
+      success: false,
+      error: "找不到課程",
+      registrationIds: undefined,
+      updated: undefined,
+    });
     return { success: false, error: "找不到課程" };
   }
 
@@ -399,17 +436,30 @@ async function completeOrderAfterFulfillment(input: {
   });
 
   if (!result.success) {
+    console.log("[completeOrderAfterFulfillment]", {
+      success: false,
+      error: result.error,
+      registrationIds: result.registrationIds,
+      updated: undefined,
+    });
     return { success: false, error: result.error };
   }
 
   const registrationId = result.registrationIds[0] ?? null;
   if (!registrationId) {
+    console.log("[completeOrderAfterFulfillment]", {
+      success: false,
+      error: "建立報名失敗",
+      registrationIds: result.registrationIds,
+      updated: undefined,
+    });
     return { success: false, error: "建立報名失敗" };
   }
 
   const paidAt = new Date().toISOString();
   const updated = await updateOrderStatus(input.order.id, {
     status: "paid",
+    order_status: "completed",
     payment_status: "paid",
     payment_method: input.paymentMethod,
     ecpay_trade_no: input.ecpayTradeNo ?? input.order.ecpay_trade_no,
@@ -417,7 +467,15 @@ async function completeOrderAfterFulfillment(input: {
     paid_at: paidAt,
   });
 
+  console.log("[updateOrderStatus]", updated);
+
   if (!updated) {
+    console.log("[completeOrderAfterFulfillment]", {
+      success: false,
+      error: "更新訂單失敗",
+      registrationIds: result.registrationIds,
+      updated,
+    });
     return { success: false, error: "更新訂單失敗" };
   }
 
@@ -428,17 +486,63 @@ async function completeOrderAfterFulfillment(input: {
   revalidatePath("/admin/registrations");
 
   try {
-    const enrollmentCount = await getEnrollmentCount(course.id);
-    await sendRegistrationNotifications({
-      course,
-      formData,
-      enrollmentCount,
-    });
+    const paidOrder: OrderRecord = {
+      ...input.order,
+      order_status: "completed",
+      payment_status: "paid",
+      status: "paid",
+      payment_method: input.paymentMethod,
+      ecpay_trade_no: input.ecpayTradeNo ?? input.order.ecpay_trade_no,
+      registration_id: registrationId,
+      paid_at: paidAt,
+    };
+
+    if (input.paymentMethod === "free") {
+      await notifyParentRegistrationSuccess({
+        order: paidOrder,
+        course,
+      });
+    } else if (input.paymentMethod === "ecpay") {
+      await notifyParentPaymentSuccess({
+        order: paidOrder,
+        course,
+      });
+    } else if (input.paymentMethod === "bank_transfer") {
+      await notifyParentPaymentConfirmed({
+        order: paidOrder,
+        course,
+      });
+    }
   } catch (error) {
-    console.error("Registration email notification failed:", error);
+    console.error("Order email notification failed:", error);
   }
 
+  console.log("[completeOrderAfterFulfillment]", {
+    success: true,
+    error: undefined,
+    registrationIds: result.registrationIds,
+    updated,
+  });
   return { success: true, alreadyPaid: false };
+}
+
+async function orderHasRegistrations(orderId: string): Promise<boolean> {
+  const supabase = createPaymentClient();
+  const { count, error } = await supabase
+    .from("registrations")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId);
+
+  if (error) {
+    console.error("orderHasRegistrations query failed", {
+      orderId,
+      code: error.code,
+      message: error.message,
+    });
+    return false;
+  }
+
+  return (count ?? 0) > 0;
 }
 
 export async function fulfillOrderById(orderId: string): Promise<FulfillOrderResult> {
@@ -448,11 +552,25 @@ export async function fulfillOrderById(orderId: string): Promise<FulfillOrderRes
     return { success: false, error: "找不到訂單" };
   }
 
-  if (isOrderPaid(order)) {
+  const isPerformance = isPerformanceOrderFormData(order.form_data);
+
+  if (
+    isPerformance &&
+    deriveOrderFulfillmentStatus(order) === "completed"
+  ) {
     return { success: true, alreadyPaid: true };
   }
 
-  if (!canFulfillOrder(order)) {
+  const hasRegistrations = await orderHasRegistrations(order.id);
+
+  if (isOrderPaid(order) && hasRegistrations) {
+    return { success: true, alreadyPaid: true };
+  }
+
+  const canProceed =
+    canFulfillOrder(order) || (isOrderPaid(order) && !hasRegistrations);
+
+  if (!canProceed) {
     return { success: false, error: "訂單狀態不可完成付款" };
   }
 
@@ -465,7 +583,7 @@ export async function fulfillOrderById(orderId: string): Promise<FulfillOrderRes
     return { success: false, error: "課程已關閉" };
   }
 
-  if (!isBeforeRegistrationDeadline(course)) {
+  if (!isPerformance && !isBeforeRegistrationDeadline(course)) {
     return { success: false, error: "此課程報名已截止" };
   }
 
@@ -485,29 +603,67 @@ export async function fulfillPaidOrder(input: {
   const order = await getOrderByMerchantTradeNo(input.merchantTradeNo);
 
   if (!order) {
-    return { success: false, error: "找不到訂單" };
+    const result = { success: false as const, error: "找不到訂單" };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
+  console.log("[fulfillPaidOrder] Fulfill Start", {
+    merchantTradeNo: input.merchantTradeNo,
+    ecpayTradeNo: input.ecpayTradeNo ?? null,
+  });
+
+  console.log("[fulfillPaidOrder] order.id:", order.id);
+  console.log("[fulfillPaidOrder] payment_status:", order.payment_status);
+  console.log("[fulfillPaidOrder] status:", order.status);
+  console.log("[fulfillPaidOrder] form_data:", order.form_data);
+  console.log(
+    "[fulfillPaidOrder] form_data.orderType:",
+    (order.form_data as Record<string, unknown>).orderType,
+  );
+  console.log("[fulfillPaidOrder] pricing_snapshot:", order.pricing_snapshot);
+
   if (isOrderPaid(order)) {
-    return { success: true, alreadyPaid: true };
+    const result = { success: true as const, alreadyPaid: true };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
+  }
+
+  if (
+    isPerformanceOrderFormData(order.form_data) &&
+    deriveOrderFulfillmentStatus(order) === "completed"
+  ) {
+    const result = { success: true as const, alreadyPaid: true };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
   if (!canFulfillOrder(order)) {
-    return { success: false, error: "訂單狀態不可完成付款" };
+    const result = { success: false as const, error: "訂單狀態不可完成付款" };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
   const course = await getCourseWithEnrollment(order.course_id);
 
   if (!course) {
-    return { success: false, error: "找不到課程" };
+    const result = { success: false as const, error: "找不到課程" };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
   if (!course.isOpen) {
-    return { success: false, error: "課程已關閉" };
+    const result = { success: false as const, error: "課程已關閉" };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
-  if (!isBeforeRegistrationDeadline(course)) {
-    return { success: false, error: "此課程報名已截止" };
+  const isPerformance = isPerformanceOrderFormData(order.form_data);
+
+  if (!isPerformance && !isBeforeRegistrationDeadline(course)) {
+    const result = { success: false as const, error: "此課程報名已截止" };
+    console.log("[fulfillPaidOrder return]", result);
+    return result;
   }
 
   console.log("fulfillPaidOrder", {
@@ -516,9 +672,12 @@ export async function fulfillPaidOrder(input: {
     paymentMethod: order.payment_method,
   });
 
-  return completeOrderAfterFulfillment({
+  const result = await completeOrderAfterFulfillment({
     order,
     paymentMethod: "ecpay",
     ecpayTradeNo: input.ecpayTradeNo ?? null,
   });
+  console.log("[fulfillPaidOrder] Fulfill End", result);
+  console.log("[fulfillPaidOrder return]", result);
+  return result;
 }

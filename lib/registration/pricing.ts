@@ -43,6 +43,24 @@ export function countRegistrationStudents(
   return Math.max(students?.length ?? 0, 0);
 }
 
+/** Billable session slots: one per student when not session-based, else sum of each student's sessionIds. */
+export function countRegistrationSessionSlots(
+  students: Pick<OrderStudentInput, "sessionIds">[] | undefined,
+  options?: { usesSessions?: boolean },
+): number {
+  const list = students ?? [];
+  if (list.length === 0) return 0;
+
+  if (!options?.usesSessions) {
+    return list.length;
+  }
+
+  return list.reduce(
+    (sum, student) => sum + (student.sessionIds?.length ?? 0),
+    0,
+  );
+}
+
 export function calculateOrderTotal(input: {
   pricePerStudent: number;
   studentCount: number;
@@ -55,9 +73,18 @@ export function calculateOrderTotal(input: {
 export function calculateOrderTotalFromStudents(input: {
   pricePerStudent: number;
   students: Pick<OrderStudentInput, "sessionIds">[];
+  usesSessions?: boolean;
 }): number {
   return calculateOrderTotal({
     pricePerStudent: input.pricePerStudent,
-    studentCount: countRegistrationStudents(input.students),
+    studentCount: countRegistrationSessionSlots(input.students, {
+      usesSessions: input.usesSessions,
+    }),
   });
 }
+
+export {
+  calculateRegistrationPricing,
+  courseToPricingRules,
+} from "@/lib/pricing/engine";
+export type { PricingSnapshot } from "@/lib/pricing/types";

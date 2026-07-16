@@ -87,33 +87,6 @@ export function AdultRegistrationFormStep({
           </div>
 
           <div className="sm:col-span-2">
-            <p className="text-sm font-medium text-foreground">
-              是否第一次參加 <span className="text-gold">*</span>
-            </p>
-            <div className="mt-3 flex gap-4">
-              {(["yes", "no"] as const).map((value) => (
-                <label
-                  key={value}
-                  className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-                >
-                  <input
-                    type="radio"
-                    value={value}
-                    {...register("isFirstTime")}
-                    className="h-4 w-4 accent-gold"
-                  />
-                  {value === "yes" ? "是" : "否"}
-                </label>
-              ))}
-            </div>
-            {errors.isFirstTime ? (
-              <p className="mt-1 text-xs text-red-600">
-                {errors.isFirstTime.message}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="sm:col-span-2">
             <label className="text-sm font-medium text-foreground">備註</label>
             <textarea
               rows={2}
@@ -134,7 +107,11 @@ export function AdultRegistrationFormStep({
               classes={classes}
               selectedSessionIds={selectedSessionIds}
               onChange={(next) =>
-                setValue("sessionIds", next, { shouldValidate: true })
+                setValue("sessionIds", next, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                  shouldTouch: true,
+                })
               }
             />
           </div>

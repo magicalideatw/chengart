@@ -12,3 +12,17 @@ export const bankTransferSettingsSchema = z.object({
 export type BankTransferSettingsFormValues = z.infer<
   typeof bankTransferSettingsSchema
 >;
+
+export const emailSettingsSchema = z.object({
+  senderName: z.string().min(1, "請填寫寄件者名稱"),
+  adminEmail: z.union([
+    z.literal(""),
+    z.string().email("請填寫有效的管理員 Email"),
+  ]),
+  replyToEmail: z.union([
+    z.literal(""),
+    z.string().email("請填寫有效的回覆 Email"),
+  ]),
+});
+
+export type EmailSettingsFormValues = z.infer<typeof emailSettingsSchema>;

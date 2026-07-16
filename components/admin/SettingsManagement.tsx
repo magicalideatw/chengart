@@ -2,49 +2,83 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateBankTransferSettings } from "@/lib/actions/admin/settings";
+import {
+  updateBankTransferSettings,
+  updateEmailSettings,
+} from "@/lib/actions/admin/settings";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { BankTransferSettings } from "@/lib/settings/types";
+import type { BankTransferSettings, EmailSettings } from "@/lib/settings/types";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
 
 type SettingsManagementProps = {
   bankTransferSettings: BankTransferSettings;
+  emailSettings: EmailSettings;
   canMutate: boolean;
 };
 
 export function SettingsManagement({
   bankTransferSettings,
+  emailSettings,
   canMutate,
 }: SettingsManagementProps) {
-  const [form, setForm] = useState(bankTransferSettings);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [bankForm, setBankForm] = useState(bankTransferSettings);
+  const [emailForm, setEmailForm] = useState(emailSettings);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [bankMessage, setBankMessage] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailMessage, setEmailMessage] = useState<string | null>(null);
+  const [isBankPending, startBankTransition] = useTransition();
+  const [isEmailPending, startEmailTransition] = useTransition();
   const router = useRouter();
 
-  const updateField = <K extends keyof BankTransferSettings>(
+  const updateBankField = <K extends keyof BankTransferSettings>(
     key: K,
     value: BankTransferSettings[K],
   ) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setBankForm((current) => ({ ...current, [key]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const updateEmailField = <K extends keyof EmailSettings>(
+    key: K,
+    value: EmailSettings[K],
+  ) => {
+    setEmailForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleBankSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!canMutate) return;
 
-    setError(null);
-    setMessage(null);
+    setBankError(null);
+    setBankMessage(null);
 
-    startTransition(async () => {
-      const result = await updateBankTransferSettings(form);
+    startBankTransition(async () => {
+      const result = await updateBankTransferSettings(bankForm);
       if (!result.success) {
-        setError(result.error);
+        setBankError(result.error);
         return;
       }
-      setMessage("已儲存設定");
+      setBankMessage("已儲存銀行轉帳設定");
+      router.refresh();
+    });
+  };
+
+  const handleEmailSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canMutate) return;
+
+    setEmailError(null);
+    setEmailMessage(null);
+
+    startEmailTransition(async () => {
+      const result = await updateEmailSettings(emailForm);
+      if (!result.success) {
+        setEmailError(result.error);
+        return;
+      }
+      setEmailMessage("已儲存 Email 設定");
       router.refresh();
     });
   };
@@ -53,12 +87,93 @@ export function SettingsManagement({
     <>
       <AdminPageHeader
         title="系統設定"
-        description="管理銀行轉帳等全站設定"
+        description="管理 Email 通知、銀行轉帳等全站設定"
       />
 
-      <main className="mx-auto max-w-3xl px-5 py-10 md:px-8">
+      <main className="mx-auto max-w-3xl space-y-8 px-5 py-10 md:px-8">
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleEmailSubmit}
+          className="space-y-6 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]"
+        >
+          <div>
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              Email 設定
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              設定寄件者名稱、管理員通知信箱與回覆地址。寄信服務目前使用
+              Resend（需設定 RESEND_API_KEY 與 RESEND_FROM_EMAIL）。
+            </p>
+          </div>
+
+          <div className="grid gap-5">
+            <div>
+              <label className="text-sm font-medium text-foreground">
+                寄件者名稱
+              </label>
+              <input
+                value={emailForm.senderName}
+                onChange={(event) =>
+                  updateEmailField("senderName", event.target.value)
+                }
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">
+                管理員 Email
+              </label>
+              <input
+                type="email"
+                value={emailForm.adminEmail}
+                onChange={(event) =>
+                  updateEmailField("adminEmail", event.target.value)
+                }
+                placeholder="新訂單通知將寄到此信箱"
+                className={inputClass}
+              />
+              <p className="mt-2 text-xs text-muted">
+                若留空，將依序使用 ADMIN_NOTIFICATION_EMAIL 環境變數或網站預設信箱。
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">
+                回覆 Email
+              </label>
+              <input
+                type="email"
+                value={emailForm.replyToEmail}
+                onChange={(event) =>
+                  updateEmailField("replyToEmail", event.target.value)
+                }
+                placeholder="家長回信時使用的地址"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {emailError ? (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {emailError}
+            </p>
+          ) : null}
+
+          {emailMessage ? (
+            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {emailMessage}
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={!canMutate || isEmailPending}
+            className="rounded-full bg-gold px-6 py-3 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isEmailPending ? "儲存中…" : "儲存 Email 設定"}
+          </button>
+        </form>
+
+        <form
+          onSubmit={handleBankSubmit}
           className="space-y-6 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]"
         >
           <div>
@@ -66,7 +181,7 @@ export function SettingsManagement({
               銀行轉帳資訊
             </h2>
             <p className="mt-2 text-sm text-muted">
-              前台銀行轉帳頁面會從這裡讀取匯款資訊。
+              前台銀行轉帳頁面與 Email 通知會從這裡讀取匯款資訊。
             </p>
           </div>
 
@@ -74,32 +189,36 @@ export function SettingsManagement({
             <div>
               <label className="text-sm font-medium text-foreground">銀行名稱</label>
               <input
-                value={form.bankName}
-                onChange={(event) => updateField("bankName", event.target.value)}
+                value={bankForm.bankName}
+                onChange={(event) => updateBankField("bankName", event.target.value)}
                 className={inputClass}
               />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground">銀行代碼</label>
               <input
-                value={form.bankCode}
-                onChange={(event) => updateField("bankCode", event.target.value)}
+                value={bankForm.bankCode}
+                onChange={(event) => updateBankField("bankCode", event.target.value)}
                 className={inputClass}
               />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground">帳號</label>
               <input
-                value={form.accountNumber}
-                onChange={(event) => updateField("accountNumber", event.target.value)}
+                value={bankForm.accountNumber}
+                onChange={(event) =>
+                  updateBankField("accountNumber", event.target.value)
+                }
                 className={inputClass}
               />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground">戶名</label>
               <input
-                value={form.accountName}
-                onChange={(event) => updateField("accountName", event.target.value)}
+                value={bankForm.accountName}
+                onChange={(event) =>
+                  updateBankField("accountName", event.target.value)
+                }
                 className={inputClass}
               />
             </div>
@@ -108,9 +227,9 @@ export function SettingsManagement({
               <input
                 type="number"
                 min={1}
-                value={form.transferDeadlineDays}
+                value={bankForm.transferDeadlineDays}
                 onChange={(event) =>
-                  updateField("transferDeadlineDays", Number(event.target.value))
+                  updateBankField("transferDeadlineDays", Number(event.target.value))
                 }
                 className={inputClass}
               />
@@ -121,30 +240,30 @@ export function SettingsManagement({
             <label className="text-sm font-medium text-foreground">提醒文字</label>
             <textarea
               rows={3}
-              value={form.reminderText}
-              onChange={(event) => updateField("reminderText", event.target.value)}
+              value={bankForm.reminderText}
+              onChange={(event) => updateBankField("reminderText", event.target.value)}
               className={`${inputClass} resize-none`}
             />
           </div>
 
-          {error ? (
+          {bankError ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+              {bankError}
             </p>
           ) : null}
 
-          {message ? (
+          {bankMessage ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-              {message}
+              {bankMessage}
             </p>
           ) : null}
 
           <button
             type="submit"
-            disabled={!canMutate || isPending}
+            disabled={!canMutate || isBankPending}
             className="rounded-full bg-gold px-6 py-3 text-sm font-medium text-white transition hover:bg-gold-light disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending ? "儲存中…" : "儲存設定"}
+            {isBankPending ? "儲存中…" : "儲存銀行轉帳設定"}
           </button>
         </form>
       </main>

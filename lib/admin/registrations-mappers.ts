@@ -158,6 +158,14 @@ function buildStudentFromGroup(
   };
 }
 
+function pickNonEmptyString(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
 function inferRegistrationType(input: {
   formData?: RegistrationOrderFormData | null;
   students: AdminOrderStudent[];
@@ -205,10 +213,27 @@ function mergeOrderGroup(
     .sort((a, b) => a.student_name.localeCompare(b.student_name, "zh-Hant"));
 
   const registrationIds = items.map((item) => item.row.id);
+  const parentName = pickNonEmptyString(
+    base.parent.name,
+    orderMeta?.formData?.name,
+    ...items.map((item) => item.row.name),
+    students[0]?.student_name,
+  );
+  const parentPhone = pickNonEmptyString(
+    base.parent.phone,
+    orderMeta?.formData?.phone,
+    ...items.map((item) => item.row.phone),
+  );
+  const parentEmail = pickNonEmptyString(
+    base.parent.email,
+    orderMeta?.formData?.email,
+    ...items.map((item) => item.row.email),
+  );
+
   const registrationType = inferRegistrationType({
     formData: orderMeta?.formData ?? null,
     students,
-    parentName: base.parent.name,
+    parentName,
   });
 
   return {
@@ -217,10 +242,14 @@ function mergeOrderGroup(
     registrationIds,
     course_id: base.parent.course_id,
     status: base.parent.status,
-    name: base.parent.name,
-    phone: base.parent.phone,
-    email: base.parent.email,
-    parent_note: base.parent.note,
+    name: parentName,
+    phone: parentPhone,
+    email: parentEmail,
+    parent_note: pickNonEmptyString(
+      base.parent.note,
+      orderMeta?.formData?.parentNote,
+      ...items.map((item) => item.row.note),
+    ) || null,
     created_at: base.parent.created_at,
     courseTitle: course?.title ?? "未知課程",
     courseCategory: course?.category ?? "",
@@ -243,6 +272,8 @@ export function groupAdminRegistrations(
     { amount: number | null; formData: RegistrationOrderFormData | null }
   >,
 ): AdminOrderRegistration[] {
+  console.log("[mapper input]", rows.length);
+
   const mapped = rows.map((row) => {
     const lookupKey = row.course_id ?? row.course_slug ?? "";
     const course = courseMap.get(lookupKey);
@@ -273,7 +304,7 @@ export function groupAdminRegistrations(
     orderGroups.set(key, list);
   }
 
-  return [...orderGroups.values()]
+  const grouped = [...orderGroups.values()]
     .map((items) => {
       const lookupKey = items[0].parent.course_id;
       const course = courseMap.get(lookupKey);
@@ -285,6 +316,20 @@ export function groupAdminRegistrations(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
+
+  console.log("[mapper output]", grouped.length);
+
+  console.table(
+    grouped.map((r) => ({
+      name: r.name,
+      email: r.email,
+      createdAt: r.created_at,
+      paymentStatus: r.status,
+      orderId: r.order_id,
+    })),
+  );
+
+  return grouped;
 }
 
 export const ADMIN_REGISTRATIONS_SELECT = `

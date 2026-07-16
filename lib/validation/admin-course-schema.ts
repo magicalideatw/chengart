@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { COURSE_CATEGORIES } from "@/lib/courses/types";
 import { REGISTRATION_MODES } from "@/lib/courses/registration-mode";
+import { ACTIVITY_TYPES } from "@/lib/courses/activity-type";
+import { PARTICIPATION_METHODS } from "@/lib/courses/participation-method";
+import { DISCOUNT_TYPES } from "@/lib/pricing/types";
 import { PAID_PAYMENT_METHODS } from "@/lib/payment/types";
 
 export const adminCourseSchema = z
@@ -16,6 +19,12 @@ export const adminCourseSchema = z
       ),
     description: z.string().min(1, "請填寫課程介紹"),
     courseDetails: z.string().trim().optional().default(""),
+    activityType: z.enum(ACTIVITY_TYPES).default("course"),
+    activityRules: z.string().trim().optional().default(""),
+    participationMethod: z.enum(PARTICIPATION_METHODS).default("internal"),
+    externalUrl: z.string().trim().optional().default(""),
+    actionButtonText: z.string().trim().optional().default(""),
+    isOpen: z.boolean().default(true),
     sessionDate: z.string().min(1, "請填寫上課日期"),
     sessionTime: z.string().min(1, "請填寫上課時間"),
     capacity: z.coerce.number().int().min(1, "名額至少為 1"),
@@ -27,7 +36,6 @@ export const adminCourseSchema = z
       .refine((value) => !value || !/^https?:\/\//i.test(value), {
         message: "請上傳圖片，不可使用外部網址",
       }),
-    isOpen: z.boolean(),
     allowedPaymentMethods: z.array(z.enum(PAID_PAYMENT_METHODS)).default([]),
     registrationMode: z.enum(REGISTRATION_MODES),
     pricePerStudent: z.coerce.number().int().min(0, "每人價格不可為負數"),
@@ -40,8 +48,45 @@ export const adminCourseSchema = z
         if (value === "" || value == null) return null;
         return value;
       }),
+    earlyBirdEnabled: z.boolean().default(false),
+    earlyBirdDeadline: z.string().trim().optional().default(""),
+    earlyBirdDiscountType: z.enum(DISCOUNT_TYPES).nullable().optional().default(null),
+    earlyBirdDiscountValue: z.coerce.number().int().min(0).default(0),
+    groupDiscountEnabled: z.boolean().default(false),
+    groupDiscountMinStudents: z
+      .union([z.coerce.number().int().min(2), z.literal(""), z.null()])
+      .optional()
+      .transform((value) => {
+        if (value === "" || value == null) return null;
+        return value;
+      }),
+    groupDiscountType: z.enum(DISCOUNT_TYPES).nullable().optional().default(null),
+    groupDiscountValue: z.coerce.number().int().min(0).default(0),
   })
   .superRefine((data, ctx) => {
+    if (data.participationMethod === "external") {
+      if (!data.externalUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請填寫外部網址",
+          path: ["externalUrl"],
+        });
+      } else {
+        try {
+          const url = new URL(data.externalUrl);
+          if (url.protocol !== "http:" && url.protocol !== "https:") {
+            throw new Error("invalid protocol");
+          }
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "請填寫有效的外部網址（http:// 或 https://）",
+            path: ["externalUrl"],
+          });
+        }
+      }
+    }
+
     if (data.pricePerStudent > 0 && data.allowedPaymentMethods.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -60,6 +105,40 @@ export const adminCourseSchema = z
         message: "請設定銀行轉帳匯款期限",
         path: ["transferDeadlineDays"],
       });
+    }
+
+    if (data.pricePerStudent > 0 && data.earlyBirdEnabled) {
+      if (!data.earlyBirdDeadline) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請設定早鳥截止日期",
+          path: ["earlyBirdDeadline"],
+        });
+      }
+      if (!data.earlyBirdDiscountType || data.earlyBirdDiscountValue <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請設定早鳥折扣",
+          path: ["earlyBirdDiscountValue"],
+        });
+      }
+    }
+
+    if (data.pricePerStudent > 0 && data.groupDiscountEnabled) {
+      if (!data.groupDiscountMinStudents) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請設定團報人數門檻",
+          path: ["groupDiscountMinStudents"],
+        });
+      }
+      if (!data.groupDiscountType || data.groupDiscountValue <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請設定團報折扣",
+          path: ["groupDiscountValue"],
+        });
+      }
     }
   });
 

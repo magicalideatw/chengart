@@ -1,12 +1,16 @@
+import type { PricingSnapshot } from "@/lib/pricing/types";
 import type {
   RegistrationOrderFormValues,
   RegistrationStudentInput,
 } from "@/lib/validation/registration-schema";
+import { isPerformanceOrderFormData } from "@/lib/orders/order-form-data";
 
 export type OrderStudentInput = RegistrationStudentInput;
 
 export type RegistrationOrderFormData = RegistrationOrderFormValues & {
   unitPrice?: number;
+  promoCode?: string;
+  pricingSnapshot?: PricingSnapshot;
   sessionSummaries?: string[];
   paymentMethod?: import("@/lib/payment/types").PaymentMethod;
   registrationType?: import("@/lib/courses/registration-mode").ActiveRegistrationType;
@@ -46,17 +50,23 @@ export function getSessionIdsFromFormData(
 }
 
 export function normalizeStudentsFromFormData(
-  formData: RegistrationOrderFormData,
+  formData: RegistrationOrderFormData | Record<string, unknown>,
 ): OrderStudentInput[] {
-  if (formData.students?.length) {
-    return formData.students.map((student) => ({
+  if (isPerformanceOrderFormData(formData)) {
+    return [];
+  }
+
+  const registrationFormData = formData as RegistrationOrderFormData;
+
+  if (registrationFormData.students?.length) {
+    return registrationFormData.students.map((student) => ({
       ...student,
       sessionIds: normalizeSessionIds(student.sessionIds),
     }));
   }
 
-  const legacyName = formData.studentName?.trim();
-  const legacyAge = formData.studentAge?.trim();
+  const legacyName = registrationFormData.studentName?.trim();
+  const legacyAge = registrationFormData.studentAge?.trim();
   if (!legacyName || !legacyAge) return [];
 
   return [
@@ -64,21 +74,25 @@ export function normalizeStudentsFromFormData(
       clientId: "legacy",
       studentName: legacyName,
       studentAge: legacyAge,
-      isFirstTime: formData.isFirstTime ?? "yes",
-      note: formData.note ?? "",
-      sessionIds: getSessionIdsFromFormData(formData),
+      isFirstTime: registrationFormData.isFirstTime ?? "no",
+      note: registrationFormData.note ?? "",
+      sessionIds: getSessionIdsFromFormData(registrationFormData),
     } as OrderStudentInput,
   ];
 }
 
 export function usesMultiSessionRegistration(
-  formData: RegistrationOrderFormData,
+  formData: RegistrationOrderFormData | Record<string, unknown>,
 ): boolean {
+  if (isPerformanceOrderFormData(formData)) {
+    return false;
+  }
+
   const students = normalizeStudentsFromFormData(formData);
   if (students.some((student) => (student.sessionIds?.length ?? 0) > 0)) {
     return true;
   }
-  return getSessionIdsFromFormData(formData).length > 0;
+  return getSessionIdsFromFormData(formData as RegistrationOrderFormData).length > 0;
 }
 
 export function resolveOrderSessionIds(input: {

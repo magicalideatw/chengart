@@ -3,7 +3,11 @@
 import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { isBeforeRegistrationDeadline } from "@/lib/courses/enrollment";
-import { createOrder } from "@/lib/orders/queries";
+import {
+  notifyAdminNewOrder,
+  notifyParentBankTransferPending,
+} from "@/lib/email/dispatch";
+import { createOrder, getOrderById } from "@/lib/orders/queries";
 import { fulfillOrderById } from "@/lib/payment/fulfill-order";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
@@ -11,9 +15,12 @@ import {
   resolveAvailablePaymentMethods,
 } from "@/lib/payment/types";
 import {
-  calculateOrderTotalFromStudents,
-  getEffectivePricePerStudent,
-} from "@/lib/registration/pricing";
+  calculateRegistrationPricing,
+  courseToPricingRules,
+} from "@/lib/pricing/engine";
+import { validatePromoCode } from "@/lib/actions/pricing";
+import { recordPromoCodeRedemption } from "@/lib/promo/queries";
+import { getEffectivePricePerStudent, countRegistrationSessionSlots } from "@/lib/registration/pricing";
 import {
   getCourseRegistrationPlan,
   validateSessionSelection,
@@ -107,17 +114,44 @@ export async function createRegistrationOrder(
     sessionIds: input.sessionIds,
   });
 
-  const pricePerStudent = getEffectivePricePerStudent(course);
-  const amount = calculateOrderTotalFromStudents({
-    pricePerStudent,
-    students,
+  const sessionSlotCount = countRegistrationSessionSlots(students, { usesSessions });
+
+  const pricingRules = courseToPricingRules(course);
+  const basePricePerStudent = getEffectivePricePerStudent(course);
+  let promoCodeRecord = null;
+
+  if (basePricePerStudent > 0 && orderFormData.promoCode?.trim()) {
+    const promoResult = await validatePromoCode({
+      courseId: course.id,
+      code: orderFormData.promoCode,
+      studentCount: students.length,
+      sessionSlotCount,
+      email: orderFormData.email,
+    });
+
+    if (!promoResult.success) {
+      return { success: false, error: promoResult.error };
+    }
+
+    promoCodeRecord = promoResult.promo;
+  }
+
+  const pricing = calculateRegistrationPricing({
+    course: pricingRules,
+    studentCount: students.length,
+    sessionSlotCount,
+    promoCode: promoCodeRecord,
   });
+
+  const amount = pricing.total;
 
   let enrichedFormData: RegistrationOrderFormData = {
     ...orderFormData,
     students,
     paymentMethod: input.paymentMethod,
-    unitPrice: pricePerStudent,
+    unitPrice: pricing.basePricePerStudent,
+    promoCode: pricing.promoCode ?? undefined,
+    pricingSnapshot: pricing,
   };
 
   if (usesSessions && allSessionIds.length > 0) {
@@ -160,6 +194,10 @@ export async function createRegistrationOrder(
     courseId: course.id,
     courseTitle: course.title,
     amount,
+    subtotal: pricing.subtotal,
+    discountTotal: pricing.discountTotal,
+    promoCode: pricing.promoCode,
+    pricingSnapshot: pricing,
     formData: enrichedFormData,
     paymentMethod: input.paymentMethod,
     paymentStatus:
@@ -170,10 +208,37 @@ export async function createRegistrationOrder(
     return { success: false, error: error ?? "建立訂單失敗" };
   }
 
+  if (pricing.promoCodeId) {
+    await recordPromoCodeRedemption({
+      promoCodeId: pricing.promoCodeId,
+      orderId: order.id,
+      email: order.email,
+    });
+  }
+
+  if (input.paymentMethod !== "free") {
+    void notifyAdminNewOrder({ order, course }).catch((emailError) => {
+      console.error("Admin new order email failed:", emailError);
+    });
+  }
+
+  if (input.paymentMethod === "bank_transfer") {
+    void notifyParentBankTransferPending({ order, course }).catch((emailError) => {
+      console.error("Bank transfer pending email failed:", emailError);
+    });
+  }
+
   if (input.paymentMethod === "free") {
     const fulfillment = await fulfillOrderById(order.id);
     if (!fulfillment.success) {
       return { success: false, error: fulfillment.error };
+    }
+
+    const paidOrder = await getOrderById(order.id);
+    if (paidOrder) {
+      void notifyAdminNewOrder({ order: paidOrder, course }).catch((emailError) => {
+        console.error("Admin new order email failed:", emailError);
+      });
     }
 
     return {

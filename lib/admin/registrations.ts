@@ -8,14 +8,17 @@ import type { AdminRegistration } from "@/lib/admin/types";
 import { mapCourseRow } from "@/lib/courses/mappers";
 import { getEnrollmentCountsByCourseIds } from "@/lib/courses/queries";
 import type { RegistrationOrderFormData } from "@/lib/registration/types";
-import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import { createPaymentClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function fetchAdminRegistrations(): Promise<{
   registrations: AdminRegistration[];
   canMutate: boolean;
   error?: string;
 }> {
+  console.log("[admin/registrations] fetchAdminRegistrations:start");
+
   if (!isSupabaseConfigured()) {
+    console.log("[admin/registrations] fetchAdminRegistrations:supabase-not-configured");
     return {
       registrations: [],
       canMutate: false,
@@ -24,20 +27,56 @@ export async function fetchAdminRegistrations(): Promise<{
   }
 
   const user = await getAuthenticatedUser();
-  const supabase = await createServerClient();
+  const supabase = createPaymentClient();
+  const clientMode = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+    ? "service_role"
+    : "anon";
+
+  console.log(
+    `[admin/registrations] fetchAdminRegistrations:client mode=${clientMode} authenticatedUser=${Boolean(user)}`,
+  );
+
+  const primaryQuery = "registrations.select(ADMIN_REGISTRATIONS_SELECT)";
+  console.log(`[admin/registrations] fetchAdminRegistrations:query ${primaryQuery}`);
 
   const primaryResult = await supabase
     .from("registrations")
     .select(ADMIN_REGISTRATIONS_SELECT)
     .order("created_at", { ascending: false });
 
-  let rows: RegistrationJoinRow[];
+  const primaryRowCount = primaryResult.data?.length ?? 0;
+  console.log(
+    `[admin/registrations] fetchAdminRegistrations:primaryResult error=${primaryResult.error?.message ?? "null"} rowCount=${primaryRowCount}`,
+  );
 
-  if (primaryResult.error) {
+  let rows: RegistrationJoinRow[];
+  let queryUsed = primaryQuery;
+
+  const primaryRows = primaryResult.data ?? [];
+
+  if (primaryResult.error || primaryRows.length === 0) {
+    if (primaryResult.error) {
+      console.error(
+        `[admin/registrations] fetchAdminRegistrations:primaryError ${primaryResult.error.message}`,
+      );
+    } else {
+      console.warn(
+        "[admin/registrations] fetchAdminRegistrations:primaryEmptyRows",
+      );
+    }
+
+    queryUsed = "registrations.select(*)";
+    console.log(`[admin/registrations] fetchAdminRegistrations:query ${queryUsed}`);
+
     const fallbackResult = await supabase
       .from("registrations")
       .select("*")
       .order("created_at", { ascending: false });
+
+    const fallbackRowCount = fallbackResult.data?.length ?? 0;
+    console.log(
+      `[admin/registrations] fetchAdminRegistrations:fallbackResult error=${fallbackResult.error?.message ?? "null"} rowCount=${fallbackRowCount}`,
+    );
 
     if (fallbackResult.error) {
       return {
@@ -49,13 +88,21 @@ export async function fetchAdminRegistrations(): Promise<{
 
     rows = (fallbackResult.data ?? []) as RegistrationJoinRow[];
   } else {
-    rows = (primaryResult.data ?? []) as RegistrationJoinRow[];
+    rows = primaryRows as RegistrationJoinRow[];
   }
+
+  console.log(
+    `[admin/registrations] fetchAdminRegistrations:rowsAfterQuery queryUsed=${queryUsed} rowCount=${rows.length}`,
+  );
 
   const [coursesResult, ordersResult] = await Promise.all([
     supabase.from("courses").select("*"),
     supabase.from("orders").select("id, amount, form_data"),
   ]);
+
+  console.log(
+    `[admin/registrations] fetchAdminRegistrations:relatedQueries coursesError=${coursesResult.error?.message ?? "null"} coursesCount=${coursesResult.data?.length ?? 0} ordersError=${ordersResult.error?.message ?? "null"} ordersCount=${ordersResult.data?.length ?? 0}`,
+  );
 
   const courseMap = new Map<string, ReturnType<typeof mapCourseRow>>();
 
@@ -91,6 +138,23 @@ export async function fetchAdminRegistrations(): Promise<{
     courseMap,
     slotCounts,
     orderMap,
+  );
+
+  console.log(
+    `[admin/registrations] fetchAdminRegistrations:mapped inputRowCount=${rows.length} mappedCount=${registrations.length}`,
+  );
+
+  console.log("[fetchRegistrations] registrations =", registrations.length);
+  console.log(registrations[0]);
+  console.log(
+    registrations.map((r) => ({
+      id: r.id,
+      parent: r.name,
+      email: r.email,
+      created: r.created_at,
+      order: r.order_id,
+      status: r.status,
+    })),
   );
 
   return {

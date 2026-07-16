@@ -11,13 +11,14 @@ export const PAYMENT_STATUSES = [
   "waiting_transfer",
   "paid",
   "cancelled",
+  "refunded",
 ] as const;
 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   free: "免費",
-  ecpay: "信用卡",
+  ecpay: "信用卡（ECPay）",
   bank_transfer: "銀行轉帳",
 };
 
@@ -26,6 +27,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   waiting_transfer: "待匯款",
   paid: "已付款",
   cancelled: "已取消",
+  refunded: "已退款",
 };
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
@@ -81,6 +83,52 @@ export function getPaymentMethodLabel(method: string | null | undefined): string
     return PAYMENT_METHOD_LABELS[method];
   }
   return method;
+}
+
+/** Checkout / registration selector label (display only; does not affect payment logic). */
+export function getPaymentMethodCheckoutLabel(method: PaymentMethod): string {
+  if (method === "ecpay") {
+    return "信用卡";
+  }
+  return PAYMENT_METHOD_LABELS[method];
+}
+
+/** Display label for the confirmation summary; does not affect checkout flow. */
+export function resolvePaymentMethodDisplayLabel(input: {
+  totalAmount: number;
+  paymentMethod: PaymentMethod | null | undefined;
+}): string {
+  if (input.totalAmount <= 0) {
+    return PAYMENT_METHOD_LABELS.free;
+  }
+
+  if (
+    input.paymentMethod === "ecpay" ||
+    input.paymentMethod === "bank_transfer"
+  ) {
+    return getPaymentMethodCheckoutLabel(input.paymentMethod);
+  }
+
+  return "請選擇付款方式";
+}
+
+export function resolveConfirmStepSubtitle(input: {
+  totalAmount: number;
+  paymentMethod: PaymentMethod | null | undefined;
+}): string {
+  if (input.totalAmount <= 0) {
+    return "確認無誤後，將直接完成報名。";
+  }
+
+  if (input.paymentMethod === "bank_transfer") {
+    return "確認無誤後，將顯示銀行匯款資訊。";
+  }
+
+  if (input.paymentMethod === "ecpay") {
+    return "確認無誤後，將前往安全付款頁面（支援 LINE Pay、信用卡、ATM）。";
+  }
+
+  return "請選擇付款方式後，再確認報名。";
 }
 
 export function getPaymentStatusLabel(status: string | null | undefined): string {

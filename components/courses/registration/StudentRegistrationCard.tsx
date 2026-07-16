@@ -27,6 +27,7 @@ export function StudentRegistrationCard({
   const {
     register,
     watch,
+    getValues,
     setValue,
     formState: { errors },
   } = useFormContext<ParentFormValues>();
@@ -110,26 +111,6 @@ export function StudentRegistrationCard({
           ) : null}
         </div>
 
-        <div>
-          <p className="text-sm font-medium text-foreground">是否第一次參加</p>
-          <div className="mt-3 flex gap-4">
-            {(["yes", "no"] as const).map((value) => (
-              <label
-                key={value}
-                className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-              >
-                <input
-                  type="radio"
-                  value={value}
-                  {...register(`students.${index}.isFirstTime`)}
-                  className="h-4 w-4 accent-gold"
-                />
-                {value === "yes" ? "是" : "否"}
-              </label>
-            ))}
-          </div>
-        </div>
-
         <div className="sm:col-span-2">
           <label className="text-sm font-medium text-foreground">備註</label>
           <textarea
@@ -146,11 +127,14 @@ export function StudentRegistrationCard({
           <StudentSessionPicker
             classes={classes}
             selectedSessionIds={selectedSessionIds}
-            onChange={(next) =>
-              setValue(`students.${index}.sessionIds`, next, {
-                shouldValidate: true,
-              })
-            }
+            onChange={(next) => {
+              const current = getValues(`students.${index}`);
+              setValue(
+                `students.${index}`,
+                { ...current, sessionIds: next },
+                { shouldValidate: true, shouldDirty: true, shouldTouch: true },
+              );
+            }}
           />
         </div>
       ) : null}

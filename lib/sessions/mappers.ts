@@ -1,4 +1,8 @@
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  computeRemainingCapacity,
+  resolveSessionStatusFromEnrollment,
+} from "@/lib/sessions/enrollment-utils";
 import type {
   ClassSession,
   SessionFormInput,
@@ -15,8 +19,14 @@ function normalizeStatus(value: unknown): SessionStatus {
   return "open";
 }
 
-export function mapSessionRow(row: Record<string, unknown>): ClassSession {
+export function mapSessionRow(
+  row: Record<string, unknown>,
+  enrolledCount = 0,
+): ClassSession {
   const item = row as SessionRow;
+  const capacity = Number(item.capacity ?? 5);
+  const enrolled = Number.isFinite(enrolledCount) ? enrolledCount : 0;
+  const storedStatus = normalizeStatus(item.status);
 
   return {
     id: String(item.id),
@@ -24,9 +34,9 @@ export function mapSessionRow(row: Record<string, unknown>): ClassSession {
     date: String(item.date),
     startTime: String(item.start_time),
     endTime: String(item.end_time),
-    capacity: Number(item.capacity ?? 5),
-    remainingCapacity: Number(item.remaining_capacity ?? 0),
-    status: normalizeStatus(item.status),
+    capacity,
+    remainingCapacity: computeRemainingCapacity(capacity, enrolled),
+    status: resolveSessionStatusFromEnrollment(storedStatus, capacity, enrolled),
     notes: String(item.notes ?? ""),
     createdAt: String(item.created_at),
     updatedAt: String(item.updated_at),
@@ -36,11 +46,14 @@ export function mapSessionRow(row: Record<string, unknown>): ClassSession {
 export function mapSessionToDb(
   classId: string,
   input: SessionFormInput,
+  enrolledCount = 0,
 ): Database["public"]["Tables"]["sessions"]["Insert"] {
-  const remainingCapacity =
-    input.status === "full"
-      ? 0
-      : Math.min(input.remainingCapacity, input.capacity);
+  const enrolled = Number.isFinite(enrolledCount) ? enrolledCount : 0;
+  const remainingCapacity = computeRemainingCapacity(input.capacity, enrolled);
+  const status =
+    input.status === "cancelled" || input.status === "closed"
+      ? input.status
+      : resolveSessionStatusFromEnrollment(input.status, input.capacity, enrolled);
 
   return {
     class_id: classId,
@@ -49,7 +62,7 @@ export function mapSessionToDb(
     end_time: input.endTime.trim(),
     capacity: input.capacity,
     remaining_capacity: remainingCapacity,
-    status: input.status,
+    status,
     notes: input.notes.trim(),
     updated_at: new Date().toISOString(),
   };

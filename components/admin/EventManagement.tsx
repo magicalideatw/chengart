@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Copy } from "lucide-react";
 import {
   createEvent,
   deleteEvent,
@@ -13,6 +13,7 @@ import { formatEventDateLabel } from "@/lib/events/format";
 import type { EventRecord } from "@/lib/events/types";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { EventFormModal } from "@/components/admin/EventFormModal";
+import { CopyEventModal } from "@/components/admin/CopyEventModal";
 import { EventStatusBadge } from "@/components/events/EventStatusBadge";
 import { Toast } from "@/components/ui/Toast";
 
@@ -26,6 +27,7 @@ type ToastState = { title: string; message?: string };
 export function EventManagement({ events, canMutate }: EventManagementProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<EventRecord | null>(null);
+  const [copying, setCopying] = useState<EventRecord | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -156,6 +158,17 @@ export function EventManagement({ events, canMutate }: EventManagementProps) {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
+                            onClick={() => setCopying(event)}
+                            disabled={!canMutate || isPending}
+                            className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold disabled:opacity-40"
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <Copy className="h-3.5 w-3.5" />
+                              複製活動
+                            </span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setEditing(event)}
                             disabled={!canMutate || isPending}
                             className="rounded-full border border-border p-2 text-muted transition hover:text-foreground disabled:opacity-40"
@@ -182,6 +195,20 @@ export function EventManagement({ events, canMutate }: EventManagementProps) {
           </div>
         </div>
       </main>
+
+      {copying ? (
+        <CopyEventModal
+          event={copying}
+          open={Boolean(copying)}
+          onClose={() => setCopying(null)}
+          onCopied={(event) => {
+            setCopying(null);
+            setEditing(event);
+            showToast("已建立活動副本", "請調整日期、招生時間、圖片與介紹");
+            router.refresh();
+          }}
+        />
+      ) : null}
 
       {showCreate ? (
         <EventFormModal

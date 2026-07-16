@@ -1,7 +1,7 @@
 "use client";
 
 import type { PaymentMethod } from "@/lib/payment/types";
-import { PAYMENT_METHOD_LABELS } from "@/lib/payment/types";
+import { getPaymentMethodCheckoutLabel } from "@/lib/payment/types";
 
 type PaymentMethodSelectorProps = {
   availableMethods: PaymentMethod[];
@@ -53,7 +53,7 @@ export function PaymentMethodSelector({
               onChange={() => onChange(method)}
               className="h-4 w-4 accent-gold"
             />
-            <span className="font-medium">{PAYMENT_METHOD_LABELS[method]}</span>
+            <span className="font-medium">{getPaymentMethodCheckoutLabel(method)}</span>
             {method === "free" && totalAmount <= 0 ? (
               <span className="text-xs text-muted">（總金額 $0）</span>
             ) : null}

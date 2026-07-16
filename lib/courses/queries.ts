@@ -4,6 +4,8 @@ import {
   toCourseListing,
   withEnrollment,
 } from "@/lib/courses/mappers";
+import type { HomeActivityType } from "@/lib/courses/activity-type";
+import { isPublicCourse } from "@/lib/courses/activity-status";
 import type {
   Course,
   CourseListing,
@@ -15,24 +17,70 @@ async function getSupabase() {
   return createServerClient();
 }
 
-export async function getPublicCourses(): Promise<CourseListing[]> {
+function sortCoursesBySessionDate(courses: Course[]): Course[] {
+  return [...courses].sort((a, b) => {
+    const dateA = a.sessionDate?.trim() || "9999-12-31";
+    const dateB = b.sessionDate?.trim() || "9999-12-31";
+    return dateA.localeCompare(dateB);
+  });
+}
+
+function mapPublicCourseListings(rows: Record<string, unknown>[]): CourseListing[] {
+  const courses = sortCoursesBySessionDate(
+    rows
+      .map((row) => mapCourseRow(row))
+      .filter((course) => isPublicCourse(course.isOpen)),
+  );
+
+  return courses.map(toCourseListing);
+}
+
+export async function getPublicCoursesByActivityType(
+  activityType: HomeActivityType,
+): Promise<CourseListing[]> {
   if (!isSupabaseConfigured()) return [];
 
   const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("courses")
     .select("*")
-    .order("created_at", { ascending: false });
+    .eq("activity_type", activityType)
+    .order("session_date", { ascending: true, nullsFirst: false });
 
   if (error) {
+    if (error.code === "42703") {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("courses")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (fallbackError) {
+        console.error("Failed to fetch public courses:", fallbackError.message);
+        return [];
+      }
+
+      const courses = sortCoursesBySessionDate(
+        (fallbackData ?? [])
+          .map((row) => mapCourseRow(row))
+          .filter(
+            (course) =>
+              course.isOpen &&
+              course.activityType === activityType,
+          ),
+      );
+
+      return courses.map(toCourseListing);
+    }
+
     console.error("Failed to fetch public courses:", error.message);
     return [];
   }
 
-  return (data ?? [])
-    .map((row) => mapCourseRow(row))
-    .filter((course) => course.isOpen)
-    .map(toCourseListing);
+  return mapPublicCourseListings(data ?? []);
+}
+
+export async function getPublicCourses(): Promise<CourseListing[]> {
+  return getPublicCoursesByActivityType("course");
 }
 
 export async function getAllCourses(): Promise<Course[]> {
@@ -131,6 +179,9 @@ export async function getCourseWithEnrollment(
 export async function getEnrollmentCountsByCourseIds(
   courseIds: string[],
 ): Promise<Record<string, number>> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
   if (!isSupabaseConfigured() || courseIds.length === 0) return {};
 
   const supabase = await getSupabase();

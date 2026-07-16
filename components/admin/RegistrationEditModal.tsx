@@ -184,7 +184,7 @@ export function RegistrationEditModal({
         studentName: next.studentName,
         studentAge: next.studentAge,
         gender: "",
-        isFirstTime: next.isFirstTime === "yes",
+        isFirstTime: false,
         note: next.note ?? "",
         sessionIds: [],
         registrationIds: [],
@@ -473,33 +473,6 @@ export function RegistrationEditModal({
                   {!student.gender ? (
                     <p className="mt-1 text-xs text-muted">請選擇性別</p>
                   ) : null}
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-foreground">是否第一次參加</p>
-                  <div className="mt-3 flex gap-4">
-                    {[
-                      { value: true, label: "是" },
-                      { value: false, label: "否" },
-                    ].map((option) => (
-                      <label
-                        key={option.label}
-                        className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
-                      >
-                        <input
-                          type="radio"
-                          checked={student.isFirstTime === option.value}
-                          onChange={() =>
-                            updateStudent(student.key, {
-                              isFirstTime: option.value,
-                            })
-                          }
-                          className="h-4 w-4 accent-gold"
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
                 </div>
 
                 <div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BankTransferReportSection } from "@/components/payment/BankTransferReportSection";
 import { formatFee } from "@/lib/admin/format";
 import { getCourseById } from "@/lib/courses/queries";
 import { getCourseTransferDeadlineDays } from "@/lib/courses/enrollment";
@@ -88,6 +89,17 @@ export default async function BankTransferPage({ params }: BankTransferPageProps
         </dl>
 
         <p className="mt-4 text-sm text-muted">{bankSettings.reminderText}</p>
+
+        {order.payment_status === "waiting_transfer" ? (
+          <BankTransferReportSection
+            orderId={order.id}
+            transferReported={order.transfer_reported}
+            transferLast5={order.transfer_last5}
+            transferDate={order.transfer_date}
+            transferTime={order.transfer_time}
+            transferNote={order.transfer_note}
+          />
+        ) : null}
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link

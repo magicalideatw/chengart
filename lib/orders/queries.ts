@@ -1,7 +1,14 @@
-import type { OrderListItem, OrderRecord } from "@/lib/orders/types";
+import type { PricingSnapshot } from "@/lib/pricing/types";
+import { parsePricingSnapshot } from "@/lib/pricing/engine";
+import { parseOrderFulfillmentStatus } from "@/lib/orders/order-status";
+import type { OrderFormData } from "@/lib/orders/order-form-data";
+import {
+  getPerformanceTicketCount,
+  isPerformanceOrderFormData,
+} from "@/lib/orders/order-form-data";
+import { isOrderPaid, type OrderListItem, type OrderRecord } from "@/lib/orders/types";
 import type { PaymentMethod, PaymentStatus } from "@/lib/payment/types";
 import { isPaymentMethod } from "@/lib/payment/types";
-import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { createPaymentClient, createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -10,14 +17,15 @@ function parsePaymentStatus(value: unknown): PaymentStatus {
     value === "pending" ||
     value === "waiting_transfer" ||
     value === "paid" ||
-    value === "cancelled"
+    value === "cancelled" ||
+    value === "refunded"
   ) {
     return value;
   }
   return "pending";
 }
 
-function mapOrderRow(row: Record<string, unknown>): OrderRecord {
+export function mapOrderRow(row: Record<string, unknown>): OrderRecord {
   const paymentMethod = row.payment_method ? String(row.payment_method) : null;
 
   return {
@@ -26,8 +34,23 @@ function mapOrderRow(row: Record<string, unknown>): OrderRecord {
     course_id: String(row.course_id),
     course_title: String(row.course_title),
     status: row.status as OrderRecord["status"],
+    order_status: parseOrderFulfillmentStatus(
+      row.order_status ??
+        (row.payment_status === "paid" || row.status === "paid"
+          ? "completed"
+          : row.payment_status === "cancelled" || row.status === "cancelled"
+            ? "cancelled"
+            : "pending"),
+    ),
     payment_status: parsePaymentStatus(row.payment_status ?? row.status),
     amount: Number(row.amount),
+    subtotal: row.subtotal == null ? null : Number(row.subtotal),
+    discount_total: Number(row.discount_total ?? 0),
+    promo_code: row.promo_code ? String(row.promo_code) : null,
+    pricing_snapshot:
+      parsePricingSnapshot(row.pricing_snapshot) ??
+      (row.pricing_snapshot as PricingSnapshot | Record<string, unknown>) ??
+      {},
     payment_method:
       paymentMethod && isPaymentMethod(paymentMethod) ? paymentMethod : null,
     ecpay_trade_no: row.ecpay_trade_no ? String(row.ecpay_trade_no) : null,
@@ -35,8 +58,16 @@ function mapOrderRow(row: Record<string, unknown>): OrderRecord {
     name: String(row.name),
     email: String(row.email),
     phone: String(row.phone),
-    form_data: row.form_data as RegistrationOrderFormData,
+    form_data: row.form_data as OrderFormData,
     paid_at: row.paid_at ? String(row.paid_at) : null,
+    transfer_reported: Boolean(row.transfer_reported),
+    transfer_last5: row.transfer_last5 ? String(row.transfer_last5) : null,
+    transfer_date: row.transfer_date ? String(row.transfer_date) : null,
+    transfer_time: row.transfer_time ? String(row.transfer_time) : null,
+    transfer_note: row.transfer_note ? String(row.transfer_note) : null,
+    transfer_reported_at: row.transfer_reported_at
+      ? String(row.transfer_reported_at)
+      : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -97,12 +128,60 @@ export async function getAllOrders(): Promise<OrderListItem[]> {
   return (data ?? []).map((row) => mapOrderRow(row));
 }
 
+export async function getSoldTicketCountsByCourseIds(
+  courseIds: string[],
+): Promise<Record<string, number>> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
+  if (!isSupabaseConfigured() || courseIds.length === 0) {
+    return {};
+  }
+
+  const courseIdSet = new Set(courseIds);
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("course_id, payment_status, status, order_status, form_data")
+    .in("course_id", courseIds)
+    .or("payment_status.eq.paid,status.eq.paid");
+
+  if (error) {
+    console.error("Failed to fetch sold ticket counts:", error.message);
+    return {};
+  }
+
+  const counts: Record<string, number> = {};
+
+  for (const row of data ?? []) {
+    const courseId = row.course_id ? String(row.course_id) : "";
+    if (!courseId || !courseIdSet.has(courseId)) continue;
+
+    const order = mapOrderRow(row as Record<string, unknown>);
+    if (!isOrderPaid(order)) continue;
+
+    const formData = order.form_data as OrderFormData | Record<string, unknown>;
+    if (!isPerformanceOrderFormData(formData)) continue;
+
+    const ticketCount = getPerformanceTicketCount(formData);
+    if (ticketCount <= 0) continue;
+
+    counts[courseId] = (counts[courseId] ?? 0) + ticketCount;
+  }
+
+  return counts;
+}
+
 export async function createOrder(input: {
   merchantTradeNo: string;
   courseId: string;
   courseTitle: string;
   amount: number;
-  formData: RegistrationOrderFormData;
+  subtotal?: number;
+  discountTotal?: number;
+  promoCode?: string | null;
+  pricingSnapshot?: PricingSnapshot | Record<string, unknown>;
+  formData: OrderFormData;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
 }): Promise<{ order: OrderRecord | null; error?: string }> {
@@ -111,10 +190,11 @@ export async function createOrder(input: {
   }
 
   const supabase = createPaymentClient();
-  const status =
-    input.paymentStatus === "waiting_transfer"
-      ? "waiting_transfer"
-      : input.paymentStatus;
+  // RLS orders_insert_public only allows status = 'pending'.
+  // Bank transfer uses payment_status = 'waiting_transfer' until admin confirms.
+  const status: OrderRecord["status"] = "pending";
+
+  console.log("[createOrder] form_data (insert payload):", input.formData);
 
   const { data, error } = await supabase
     .from("orders")
@@ -123,6 +203,10 @@ export async function createOrder(input: {
       course_id: input.courseId,
       course_title: input.courseTitle,
       amount: input.amount,
+      subtotal: input.subtotal ?? input.amount,
+      discount_total: input.discountTotal ?? 0,
+      promo_code: input.promoCode ?? null,
+      pricing_snapshot: (input.pricingSnapshot ?? {}) as Database["public"]["Tables"]["orders"]["Insert"]["pricing_snapshot"],
       status,
       payment_status: input.paymentStatus,
       payment_method: input.paymentMethod,
@@ -176,7 +260,7 @@ export async function createPendingOrder(input: {
   courseId: string;
   courseTitle: string;
   amount: number;
-  formData: RegistrationOrderFormData;
+  formData: OrderFormData;
 }): Promise<{ order: OrderRecord | null; error?: string }> {
   return createOrder({
     ...input,
@@ -189,6 +273,7 @@ export async function updateOrderStatus(
   orderId: string,
   patch: Partial<{
     status: OrderRecord["status"];
+    order_status: OrderRecord["order_status"];
     payment_status: PaymentStatus;
     payment_method: PaymentMethod | null;
     ecpay_trade_no: string | null;
@@ -196,7 +281,12 @@ export async function updateOrderStatus(
     paid_at: string | null;
   }>,
 ): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  console.log("[updateOrderStatus] start", { orderId, patch });
+
+  if (!isSupabaseConfigured()) {
+    console.error("[updateOrderStatus] Supabase not configured");
+    return false;
+  }
 
   const supabase = createPaymentClient();
   const payload: Database["public"]["Tables"]["orders"]["Update"] = {
@@ -208,15 +298,26 @@ export async function updateOrderStatus(
     payload.status =
       patch.payment_status === "waiting_transfer"
         ? "waiting_transfer"
-        : patch.payment_status;
+        : patch.payment_status === "refunded"
+          ? "cancelled"
+          : patch.payment_status;
   }
+
+  console.log("[updateOrderStatus] payload", payload);
 
   const { error } = await supabase.from("orders").update(payload).eq("id", orderId);
 
   if (error) {
-    console.error("Failed to update order:", error.message);
+    console.error("[updateOrderStatus] FAILED", {
+      orderId,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return false;
   }
 
+  console.log("[updateOrderStatus] OK", { orderId });
   return true;
 }

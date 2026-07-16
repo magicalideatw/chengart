@@ -6,19 +6,28 @@ import {
   getEnrollmentCountsByCourseIds,
   usesLegacyCourseSchema,
 } from "@/lib/courses/queries";
+import { getSoldTicketCountsByCourseIds } from "@/lib/orders/queries";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const metadata: Metadata = {
-  title: "課程管理",
+  title: "活動管理",
   robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminCoursesPage() {
   const courses = await getAllCourses();
   const courseIds = courses.map((course) => course.id).filter(Boolean);
-  const enrollmentCounts = await getEnrollmentCountsByCourseIds(courseIds);
+  const performanceCourseIds = courses
+    .filter((course) => course.activityType === "performance")
+    .map((course) => course.id)
+    .filter(Boolean);
+  const [enrollmentCounts, soldTicketCounts] = await Promise.all([
+    getEnrollmentCountsByCourseIds(courseIds),
+    getSoldTicketCountsByCourseIds(performanceCourseIds),
+  ]);
   const classCounts = await getClassCountsByCourseIds(courseIds);
   const isLegacySchema = await usesLegacyCourseSchema();
 
@@ -37,6 +46,7 @@ export default async function AdminCoursesPage() {
       <CourseManagement
         courses={courses}
         enrollmentCounts={enrollmentCounts}
+        soldTicketCounts={soldTicketCounts}
         classCounts={classCounts}
         canMutate={isSupabaseConfigured() && !isLegacySchema}
       />

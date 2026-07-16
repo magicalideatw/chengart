@@ -18,4 +18,17 @@ export const DEFAULT_BANK_TRANSFER_SETTINGS: BankTransferSettings = {
 
 export const SYSTEM_SETTING_KEYS = {
   bankTransfer: "bank_transfer",
+  email: "email_settings",
 } as const;
+
+export type EmailSettings = {
+  senderName: string;
+  adminEmail: string;
+  replyToEmail: string;
+};
+
+export const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
+  senderName: "晟心誠藝劇團",
+  adminEmail: "",
+  replyToEmail: "",
+};

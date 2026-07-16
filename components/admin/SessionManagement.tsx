@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ClipboardCheck } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, Copy, Pencil, Trash2 } from "lucide-react";
@@ -319,6 +320,13 @@ export function SessionManagement({
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 pr-6">
                         <div className="flex items-center gap-2">
+                          <Link
+                            href={`/admin/attendance/sessions/${session.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold"
+                          >
+                            <ClipboardCheck className="h-3.5 w-3.5" />
+                            點名
+                          </Link>
                           <button
                             type="button"
                             onClick={() => setModal({ mode: "edit", session })}

@@ -17,18 +17,18 @@ export const siteConfig = {
 
 export const navLinks = [
   { label: "首頁", href: "/" },
-  { label: "近期招生與演出", href: "#activities" },
-  { label: "課程", href: "#courses" },
-  { label: "演出服務", href: "#performances" },
+  { label: "最新演出", href: "#latest-performances" },
+  { label: "藝術課程", href: "#courses" },
   { label: "關於", href: "#about" },
+  { label: "最新消息", href: "#news" },
   { label: "聯絡", href: "#contact" },
 ];
 
 export const footerLinks = [
-  { label: "近期招生與演出", href: "#activities" },
-  { label: "課程", href: "#courses" },
-  { label: "演出服務", href: "#performances" },
+  { label: "最新演出", href: "#latest-performances" },
+  { label: "藝術課程", href: "#courses" },
   { label: "關於", href: "#about" },
+  { label: "最新消息", href: "#news" },
   { label: "聯絡", href: "#contact" },
 ];
 

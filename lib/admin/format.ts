@@ -158,3 +158,83 @@ export function formatClassLabel(weekday?: string | null, name?: string | null):
 
   return `${safeWeekday}${safeName}`;
 }
+
+/** e.g. 7/14（二） — for admin registration list grouped by student */
+export function formatAdminRegistrationSessionDateLine(
+  date?: string | null,
+): string {
+  if (!date || date === "—") return "—";
+  return formatSessionDate(date);
+}
+
+/** e.g. 7/14（二）14:00–15:00 */
+export function formatAdminRegistrationSessionLine(
+  date?: string | null,
+  startTime?: string | null,
+  endTime?: string | null,
+): string {
+  if (!date || date === "—") return "—";
+
+  const datePart = formatSessionDate(date);
+  const start = trimAdminTime(startTime);
+  const end = trimAdminTime(endTime);
+
+  if (start && end) return `${datePart}${start}–${end}`;
+  if (start) return `${datePart}${start}`;
+  return datePart;
+}
+
+type RegistrationSessionLineInput = {
+  date: string;
+  start_time: string;
+  end_time: string;
+  sessionId?: string | null;
+};
+
+export type RegistrationSessionGroup = {
+  studentId: string;
+  studentName: string;
+  lines: string[];
+};
+
+function collectStudentSessionLines(
+  sessions: RegistrationSessionLineInput[] | undefined,
+): string[] {
+  const seen = new Set<string>();
+  const entries: { sortKey: string; line: string }[] = [];
+
+  for (const session of sessions ?? []) {
+    const dedupeKey =
+      session.sessionId ??
+      `${session.date}|${session.start_time}|${session.end_time}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    const line = formatAdminRegistrationSessionDateLine(session.date);
+    if (line === "—") continue;
+
+    entries.push({
+      sortKey: `${session.date}T${session.start_time ?? ""}`,
+      line,
+    });
+  }
+
+  return entries
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    .map((entry) => entry.line);
+}
+
+/** Session dates grouped by student, sorted earliest first within each student. */
+export function collectRegistrationSessionGroups(
+  students: Array<{
+    id: string;
+    student_name: string;
+    sessions?: RegistrationSessionLineInput[];
+  }>,
+): RegistrationSessionGroup[] {
+  return students.map((student) => ({
+    studentId: student.id,
+    studentName: student.student_name.trim() || "—",
+    lines: collectStudentSessionLines(student.sessions),
+  }));
+}

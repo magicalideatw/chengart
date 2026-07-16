@@ -6,7 +6,7 @@ export const adminOrderStudentSchema = z.object({
   studentName: z.string().min(1, "請填寫學生姓名"),
   studentAge: z.string().min(1, "請填寫年齡"),
   gender: genderSchema,
-  isFirstTime: z.boolean(),
+  isFirstTime: z.boolean().optional().default(false),
   note: z.string(),
   sessionIds: z.array(z.string().uuid()),
   registrationIds: z.array(z.string().uuid()),
@@ -40,7 +40,7 @@ export const adminRegistrationSchema = z.object({
   email: z.string().min(1, "請填寫 Email").email("請輸入有效的 Email"),
   studentName: z.string().min(1, "請填寫學生姓名"),
   studentAge: z.string().min(1, "請填寫年齡"),
-  isFirstTime: z.boolean(),
+  isFirstTime: z.boolean().optional().default(false),
   note: z.string(),
 });
 

@@ -89,7 +89,7 @@ function SessionFormModalBody({
       const next = { ...current, [key]: value };
 
       if (key === "capacity" && typeof value === "number") {
-        next.remainingCapacity = Math.min(current.remainingCapacity, value);
+        next.remainingCapacity = value;
       }
 
       if (key === "status" && value === "full") {
@@ -202,12 +202,13 @@ function SessionFormModalBody({
                 min={0}
                 max={form.capacity}
                 value={form.remainingCapacity}
-                onChange={(e) =>
-                  updateField("remainingCapacity", Number(e.target.value))
-                }
-                disabled={form.status === "full"}
-                className={inputClass}
+                readOnly
+                disabled
+                className={`${inputClass} bg-surface/80 text-muted`}
               />
+              <p className="mt-1 text-xs text-muted">
+                依已付款報名自動計算，無需手動調整
+              </p>
             </div>
           </div>
 

@@ -1,8 +1,14 @@
+import type { DiscountType } from "@/lib/pricing/types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
 import { parsePaidPaymentMethods } from "@/lib/payment/types";
 import { parseRegistrationMode } from "@/lib/courses/registration-mode";
+import { parseActivityType } from "@/lib/courses/activity-type";
+import {
+  parseParticipationMethod,
+  resolveActionButtonText,
+} from "@/lib/courses/participation-method";
 import {
   normalizeCourseCoverStorageValue,
   sanitizeCourseCoverForStorage,
@@ -32,6 +38,10 @@ function isLegacyCourseRow(row: Record<string, unknown>): row is LegacyCourseRow
   return typeof row.slug === "string" && !("id" in row && row.id);
 }
 
+function parseDiscountType(value: unknown): DiscountType | null {
+  return value === "fixed" || value === "percent" ? value : null;
+}
+
 function mapLegacyCourseRow(row: LegacyCourseRow): Course {
   return {
     id: row.slug,
@@ -39,6 +49,11 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     category: LEGACY_CATEGORY_MAP[row.slug] ?? "其他",
     description: row.subtitle ?? "",
     courseDetails: "",
+    activityType: "course",
+    activityRules: "",
+    participationMethod: "internal",
+    externalUrl: null,
+    actionButtonText: "立即報名",
     sessionDate: "",
     sessionTime: "—",
     capacity: row.max_capacity_per_class ?? 5,
@@ -51,6 +66,14 @@ function mapLegacyCourseRow(row: LegacyCourseRow): Course {
     registrationDeadline: null,
     showRemainingCapacity: true,
     transferDeadlineDays: null,
+    earlyBirdEnabled: false,
+    earlyBirdDeadline: null,
+    earlyBirdDiscountType: null,
+    earlyBirdDiscountValue: 0,
+    groupDiscountEnabled: false,
+    groupDiscountMinStudents: null,
+    groupDiscountType: null,
+    groupDiscountValue: 0,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
@@ -69,6 +92,14 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     category: course.category ?? "其他",
     description: course.description ?? "",
     courseDetails: course.course_details ?? "",
+    activityType: parseActivityType(course.activity_type),
+    activityRules: course.activity_rules ?? "",
+    participationMethod: parseParticipationMethod(course.participation_method),
+    externalUrl: course.external_url ?? null,
+    actionButtonText: resolveActionButtonText(
+      course.action_button_text,
+      parseActivityType(course.activity_type),
+    ),
     sessionDate: course.session_date ?? "",
     sessionTime: course.session_time ?? "—",
     capacity: course.capacity ?? 5,
@@ -81,6 +112,14 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     registrationDeadline: course.registration_deadline ?? null,
     showRemainingCapacity: course.show_remaining_capacity ?? true,
     transferDeadlineDays: course.transfer_deadline_days ?? null,
+    earlyBirdEnabled: course.early_bird_enabled ?? false,
+    earlyBirdDeadline: course.early_bird_deadline ?? null,
+    earlyBirdDiscountType: parseDiscountType(course.early_bird_discount_type),
+    earlyBirdDiscountValue: course.early_bird_discount_value ?? 0,
+    groupDiscountEnabled: course.group_discount_enabled ?? false,
+    groupDiscountMinStudents: course.group_discount_min_students ?? null,
+    groupDiscountType: parseDiscountType(course.group_discount_type),
+    groupDiscountValue: course.group_discount_value ?? 0,
     createdAt: course.created_at ?? new Date().toISOString(),
     updatedAt: course.updated_at ?? new Date().toISOString(),
   };
@@ -97,6 +136,10 @@ export function toCourseListing(course: Course): CourseListing {
     pricePerStudent: course.pricePerStudent,
     href: `/courses/${course.id}`,
     isOpen: course.isOpen,
+    activityType: course.activityType,
+    participationMethod: course.participationMethod,
+    externalUrl: course.externalUrl,
+    actionButtonText: course.actionButtonText,
   };
 }
 
@@ -125,6 +168,17 @@ export function mapCourseToDb(
     category: input.category,
     description: input.description,
     course_details: input.courseDetails.trim(),
+    activity_type: input.activityType,
+    activity_rules: input.activityRules.trim(),
+    participation_method: input.participationMethod,
+    external_url:
+      input.participationMethod === "external"
+        ? input.externalUrl.trim() || null
+        : null,
+    action_button_text: resolveActionButtonText(
+      input.actionButtonText,
+      input.activityType,
+    ),
     session_date: input.sessionDate,
     session_time: input.sessionTime,
     capacity: input.capacity,
@@ -137,6 +191,20 @@ export function mapCourseToDb(
     registration_deadline: input.registrationDeadline.trim() || null,
     show_remaining_capacity: input.showRemainingCapacity,
     transfer_deadline_days: input.transferDeadlineDays,
+    early_bird_enabled: input.earlyBirdEnabled,
+    early_bird_deadline: input.earlyBirdDeadline.trim() || null,
+    early_bird_discount_type: input.earlyBirdEnabled
+      ? input.earlyBirdDiscountType
+      : null,
+    early_bird_discount_value: input.earlyBirdDiscountValue,
+    group_discount_enabled: input.groupDiscountEnabled,
+    group_discount_min_students: input.groupDiscountEnabled
+      ? input.groupDiscountMinStudents
+      : null,
+    group_discount_type: input.groupDiscountEnabled
+      ? input.groupDiscountType
+      : null,
+    group_discount_value: input.groupDiscountValue,
   };
 }
 

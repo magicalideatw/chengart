@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RegistrationTable } from "@/components/admin/RegistrationTable";
 import { fetchAdminRegistrations } from "@/lib/admin/registrations";
+import { getStudentAttendanceStatsMap } from "@/lib/attendance/queries";
 import { getAllCourses } from "@/lib/courses/queries";
 
 export const metadata: Metadata = {
@@ -11,11 +12,30 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminRegistrationsPage() {
-  const [{ registrations, canMutate, error }, courses] = await Promise.all([
-    fetchAdminRegistrations(),
-    getAllCourses(),
-  ]);
+type AdminRegistrationsPageProps = {
+  searchParams: Promise<{ q?: string }>;
+};
+
+export default async function AdminRegistrationsPage({
+  searchParams,
+}: AdminRegistrationsPageProps) {
+  const [{ q }, { registrations, canMutate, error }, courses] =
+    await Promise.all([
+      searchParams,
+      fetchAdminRegistrations(),
+      getAllCourses(),
+    ]);
+
+  console.log(
+    `[admin/registrations/page] render queryParam="${q ?? ""}" fetchError=${error ?? "null"} registrationsCount=${registrations.length} coursesCount=${courses.length} canMutate=${canMutate}`,
+  );
+  console.log("[page]", registrations.length);
+
+  const studentIds = registrations.flatMap((registration) =>
+    registration.students.map((student) => student.id).filter(Boolean),
+  );
+  const statsMap = await getStudentAttendanceStatsMap(studentIds);
+  const studentStatsMap = Object.fromEntries(statsMap.entries());
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,6 +56,8 @@ export default async function AdminRegistrationsPage() {
             registrations={registrations}
             courses={courses}
             canMutate={canMutate}
+            initialQuery={q ?? ""}
+            studentStatsMap={studentStatsMap}
           />
         )}
       </main>

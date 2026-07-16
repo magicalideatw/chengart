@@ -29,9 +29,22 @@ export type Database = {
           registration_mode: string;
           price_per_student: number;
           course_details: string;
+          activity_type: string;
+          activity_rules: string;
+          participation_method: string;
+          external_url: string | null;
+          action_button_text: string;
           registration_deadline: string | null;
           show_remaining_capacity: boolean;
           transfer_deadline_days: number | null;
+          early_bird_enabled: boolean;
+          early_bird_deadline: string | null;
+          early_bird_discount_type: string | null;
+          early_bird_discount_value: number;
+          group_discount_enabled: boolean;
+          group_discount_min_students: number | null;
+          group_discount_type: string | null;
+          group_discount_value: number;
           created_at: string;
           updated_at: string;
           slug?: string;
@@ -54,9 +67,22 @@ export type Database = {
           registration_mode?: string;
           price_per_student?: number;
           course_details?: string;
+          activity_type?: string;
+          activity_rules?: string;
+          participation_method?: string;
+          external_url?: string | null;
+          action_button_text?: string;
           registration_deadline?: string | null;
           show_remaining_capacity?: boolean;
           transfer_deadline_days?: number | null;
+          early_bird_enabled?: boolean;
+          early_bird_deadline?: string | null;
+          early_bird_discount_type?: string | null;
+          early_bird_discount_value?: number;
+          group_discount_enabled?: boolean;
+          group_discount_min_students?: number | null;
+          group_discount_type?: string | null;
+          group_discount_value?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -75,11 +101,151 @@ export type Database = {
           registration_mode?: string;
           price_per_student?: number;
           course_details?: string;
+          activity_type?: string;
+          activity_rules?: string;
+          participation_method?: string;
+          external_url?: string | null;
+          action_button_text?: string;
           registration_deadline?: string | null;
           show_remaining_capacity?: boolean;
           transfer_deadline_days?: number | null;
+          early_bird_enabled?: boolean;
+          early_bird_deadline?: string | null;
+          early_bird_discount_type?: string | null;
+          early_bird_discount_value?: number;
+          group_discount_enabled?: boolean;
+          group_discount_min_students?: number | null;
+          group_discount_type?: string | null;
+          group_discount_value?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ticket_types: {
+        Row: {
+          id: string;
+          course_id: string;
+          name: string;
+          price: number;
+          description: string;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          name: string;
+          price: number;
+          description?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          name?: string;
+          price?: number;
+          description?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ticket_types_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      promo_codes: {
+        Row: {
+          id: string;
+          course_id: string;
+          name: string;
+          code: string;
+          valid_from: string | null;
+          valid_until: string | null;
+          discount_type: string;
+          discount_value: number;
+          max_uses: number | null;
+          used_count: number;
+          max_uses_per_person: number | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          name: string;
+          code: string;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          discount_type: string;
+          discount_value: number;
+          max_uses?: number | null;
+          used_count?: number;
+          max_uses_per_person?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          name?: string;
+          code?: string;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          discount_type?: string;
+          discount_value?: number;
+          max_uses?: number | null;
+          used_count?: number;
+          max_uses_per_person?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      promo_code_redemptions: {
+        Row: {
+          id: string;
+          promo_code_id: string;
+          order_id: string | null;
+          email: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          promo_code_id: string;
+          order_id?: string | null;
+          email: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          promo_code_id?: string;
+          order_id?: string | null;
+          email?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -335,7 +501,13 @@ export type Database = {
           course_id: string;
           course_title: string;
           status: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
-          payment_status: "pending" | "waiting_transfer" | "paid" | "cancelled";
+          order_status: "pending" | "completed" | "cancelled";
+          payment_status:
+            | "pending"
+            | "waiting_transfer"
+            | "paid"
+            | "cancelled"
+            | "refunded";
           amount: number;
           payment_method: string | null;
           ecpay_trade_no: string | null;
@@ -345,6 +517,16 @@ export type Database = {
           phone: string;
           form_data: Json;
           paid_at: string | null;
+          subtotal: number | null;
+          discount_total: number;
+          promo_code: string | null;
+          pricing_snapshot: Json;
+          transfer_reported: boolean;
+          transfer_last5: string | null;
+          transfer_date: string | null;
+          transfer_time: string | null;
+          transfer_note: string | null;
+          transfer_reported_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -354,7 +536,13 @@ export type Database = {
           course_id: string;
           course_title: string;
           status?: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
-          payment_status?: "pending" | "waiting_transfer" | "paid" | "cancelled";
+          order_status?: "pending" | "completed" | "cancelled";
+          payment_status?:
+            | "pending"
+            | "waiting_transfer"
+            | "paid"
+            | "cancelled"
+            | "refunded";
           amount: number;
           payment_method?: string | null;
           ecpay_trade_no?: string | null;
@@ -364,6 +552,16 @@ export type Database = {
           phone: string;
           form_data: Json;
           paid_at?: string | null;
+          subtotal?: number | null;
+          discount_total?: number;
+          promo_code?: string | null;
+          pricing_snapshot?: Json;
+          transfer_reported?: boolean;
+          transfer_last5?: string | null;
+          transfer_date?: string | null;
+          transfer_time?: string | null;
+          transfer_note?: string | null;
+          transfer_reported_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -373,7 +571,13 @@ export type Database = {
           course_id?: string;
           course_title?: string;
           status?: "pending" | "waiting_transfer" | "paid" | "failed" | "cancelled";
-          payment_status?: "pending" | "waiting_transfer" | "paid" | "cancelled";
+          order_status?: "pending" | "completed" | "cancelled";
+          payment_status?:
+            | "pending"
+            | "waiting_transfer"
+            | "paid"
+            | "cancelled"
+            | "refunded";
           amount?: number;
           payment_method?: string | null;
           ecpay_trade_no?: string | null;
@@ -383,6 +587,16 @@ export type Database = {
           phone?: string;
           form_data?: Json;
           paid_at?: string | null;
+          subtotal?: number | null;
+          discount_total?: number;
+          promo_code?: string | null;
+          pricing_snapshot?: Json;
+          transfer_reported?: boolean;
+          transfer_last5?: string | null;
+          transfer_date?: string | null;
+          transfer_time?: string | null;
+          transfer_note?: string | null;
+          transfer_reported_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -396,6 +610,105 @@ export type Database = {
           },
           {
             foreignKeyName: "orders_registration_id_fkey";
+            columns: ["registration_id"];
+            isOneToOne: false;
+            referencedRelation: "registrations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      order_email_logs: {
+        Row: {
+          id: string;
+          order_id: string;
+          event: string;
+          recipient: string;
+          subject: string;
+          status: "sent" | "failed";
+          error_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          event: string;
+          recipient: string;
+          subject: string;
+          status?: "sent" | "failed";
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          event?: string;
+          recipient?: string;
+          subject?: string;
+          status?: "sent" | "failed";
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "order_email_logs_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      attendance: {
+        Row: {
+          id: string;
+          session_id: string;
+          student_id: string;
+          registration_id: string | null;
+          status: "present" | "absent" | "excused" | "late" | "early_leave";
+          note: string | null;
+          marked_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          student_id: string;
+          registration_id?: string | null;
+          status: "present" | "absent" | "excused" | "late" | "early_leave";
+          note?: string | null;
+          marked_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          student_id?: string;
+          registration_id?: string | null;
+          status?: "present" | "absent" | "excused" | "late" | "early_leave";
+          note?: string | null;
+          marked_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attendance_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "students";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_registration_id_fkey";
             columns: ["registration_id"];
             isOneToOne: false;
             referencedRelation: "registrations";

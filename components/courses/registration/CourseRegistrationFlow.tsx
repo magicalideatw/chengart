@@ -2,12 +2,13 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { createRegistrationOrder } from "@/lib/actions/payment";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import { isCourseRegistrationOpen } from "@/lib/courses/enrollment";
+import { isInternalParticipation } from "@/lib/courses/participation-method";
 import {
   resolveActiveRegistrationType,
   type ActiveRegistrationType,
@@ -19,10 +20,12 @@ import {
   resolveDefaultPaymentMethod,
 } from "@/lib/payment/types";
 import {
-  calculateOrderTotal,
-  getEffectivePricePerStudent,
-} from "@/lib/registration/pricing";
+  calculateRegistrationPricing,
+  courseToPricingRules,
+} from "@/lib/pricing/engine";
+import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { CourseRegistrationPlan } from "@/lib/registration/queries";
+import { countRegistrationSessionSlots } from "@/lib/registration/pricing";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import {
   adultFormSchema,
@@ -36,6 +39,7 @@ import {
 } from "@/lib/validation/registration-schema";
 import { CourseRegistrationHero } from "./CourseRegistrationHero";
 import { CourseDetailsSection } from "./CourseDetailsSection";
+import { ActivityRulesSection } from "./ActivityRulesSection";
 import { StepIndicator, StepHeader } from "./StepIndicator";
 import { ParentStudentFormStep } from "./ParentStudentFormStep";
 import { AdultRegistrationFormStep } from "./AdultRegistrationFormStep";
@@ -47,11 +51,16 @@ import { RegistrationPriceSummary } from "./RegistrationPriceSummary";
 type CourseRegistrationFlowProps = {
   course: CourseWithEnrollment;
   plan: CourseRegistrationPlan;
+  hasPromoCodes?: boolean;
 };
 
 const steps = ["填寫報名資料", "確認並付款"];
 
-export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowProps) {
+export function CourseRegistrationFlow({
+  course,
+  plan,
+  hasPromoCodes = false,
+}: CourseRegistrationFlowProps) {
   const formRef = useRef<HTMLDivElement>(null);
   const isSubmittingOrderRef = useRef(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -59,20 +68,28 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
   const [isPending, startTransition] = useTransition();
   const [selectedType, setSelectedType] = useState<ActiveRegistrationType | null>(null);
   const [confirmData, setConfirmData] = useState<RegistrationOrderFormValues | null>(null);
+  const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(null);
+  const [appliedPromoRecord, setAppliedPromoRecord] = useState<PromoCodeRecord | null>(
+    null,
+  );
   const router = useRouter();
 
   const usesSessions = plan.usesSessions;
-  const pricePerStudent = getEffectivePricePerStudent(course);
+  const pricingRules = useMemo(() => courseToPricingRules(course), [course]);
+  const isFreeCourse = pricingRules.pricePerStudent <= 0;
+
   const activeType = resolveActiveRegistrationType({
     registrationMode: course.registrationMode,
     selectedType,
   });
 
-  const canRegister = isCourseRegistrationOpen({
-    course,
-    usesSessions,
-    hasSelectableSessions: plan.hasSelectableSessions,
-  });
+  const canRegister =
+    isInternalParticipation(course.participationMethod) &&
+    isCourseRegistrationOpen({
+      course,
+      usesSessions,
+      hasSelectableSessions: plan.hasSelectableSessions,
+    });
 
   const parentMethods = useForm<ParentFormValues>({
     resolver: zodResolver(parentFormSchema),
@@ -86,22 +103,54 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     mode: "onTouched",
   });
 
-  const watchedParentStudents = parentMethods.watch("students");
+  const watchedParentStudents = useWatch({
+    control: parentMethods.control,
+    name: "students",
+    defaultValue: defaultParentFormValues.students,
+  });
+  const watchedParentEmail = useWatch({
+    control: parentMethods.control,
+    name: "email",
+    defaultValue: defaultParentFormValues.email,
+  });
+  const watchedAdultEmail = useWatch({
+    control: adultMethods.control,
+    name: "email",
+    defaultValue: defaultAdultFormValues.email,
+  });
+  const watchedAdultSessions = useWatch({
+    control: adultMethods.control,
+    name: "sessionIds",
+    defaultValue: defaultAdultFormValues.sessionIds,
+  });
 
-  const studentCount = useMemo(() => {
-    if (!activeType) return 0;
-    if (activeType === "adult") return 1;
-    return watchedParentStudents?.length ?? 0;
-  }, [activeType, watchedParentStudents]);
+  const contactEmail =
+    activeType === "adult" ? watchedAdultEmail : watchedParentEmail;
 
-  const totalAmount = useMemo(
-    () =>
-      calculateOrderTotal({
-        pricePerStudent,
-        studentCount,
-      }),
-    [pricePerStudent, studentCount],
-  );
+  const studentCount =
+    !activeType ? 0 : activeType === "adult" ? 1 : watchedParentStudents.length;
+
+  const pricingStudents =
+    !activeType
+      ? []
+      : activeType === "adult"
+        ? [{ sessionIds: watchedAdultSessions ?? [] }]
+        : watchedParentStudents.map((student) => ({
+            sessionIds: student.sessionIds ?? [],
+          }));
+
+  const sessionSlotCount = countRegistrationSessionSlots(pricingStudents, {
+    usesSessions,
+  });
+
+  const pricing = calculateRegistrationPricing({
+    course: pricingRules,
+    studentCount,
+    sessionSlotCount,
+    promoCode: appliedPromoRecord,
+  });
+
+  const totalAmount = pricing.total;
 
   const availablePaymentMethods = useMemo(
     () =>
@@ -133,6 +182,14 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     return parentFormToOrderData(parentMethods.getValues());
   };
 
+  const handlePromoApplied = (
+    code: string | null,
+    promo: PromoCodeRecord | null,
+  ) => {
+    setAppliedPromoCode(code);
+    setAppliedPromoRecord(promo);
+  };
+
   const handleNextFromForm = async () => {
     if (!activeType) {
       setErrorMessage("請先選擇報名方式");
@@ -162,7 +219,11 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
     const orderData = buildOrderFormData();
     if (!orderData) return;
 
-    setConfirmData(orderData);
+    setConfirmData({
+      ...orderData,
+      promoCode: appliedPromoCode ?? undefined,
+      pricingSnapshot: pricing,
+    });
     setPaymentMethod((current) => current ?? defaultPaymentMethod);
     setShowConfirm(true);
 
@@ -198,6 +259,8 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
           formData: {
             ...confirmData,
             paymentMethod: activePaymentMethod,
+            promoCode: appliedPromoCode ?? undefined,
+            pricingSnapshot: pricing,
           },
           paymentMethod: activePaymentMethod,
         });
@@ -216,7 +279,16 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
 
   const currentStep = showConfirm ? 2 : 1;
   const needsTypeSelection = course.registrationMode === "both" && !activeType;
-  const showPriceSummary = !needsTypeSelection && studentCount > 0;
+  const showPriceSummary = !needsTypeSelection && studentCount > 0 && !isFreeCourse;
+
+  const summaryProps = {
+    pricing,
+    showPromoInput: hasPromoCodes && !isFreeCourse,
+    courseId: course.id,
+    email: contactEmail,
+    appliedPromoCode,
+    onPromoApplied: handlePromoApplied,
+  };
 
   return (
     <>
@@ -228,6 +300,7 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
       />
 
       <CourseDetailsSection courseDetails={course.courseDetails} />
+      <ActivityRulesSection activityRules={course.activityRules} />
 
       {canRegister && (
         <div ref={formRef} id="register" className="scroll-mt-20">
@@ -287,11 +360,7 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                   </motion.div>
 
                   {showPriceSummary ? (
-                    <RegistrationPriceSummary
-                      studentCount={studentCount}
-                      pricePerStudent={pricePerStudent}
-                      totalAmount={totalAmount}
-                    />
+                    <RegistrationPriceSummary {...summaryProps} />
                   ) : null}
                 </div>
               ) : confirmData ? (
@@ -312,6 +381,7 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                         }
                         classTime={usesSessions ? undefined : course.sessionTime}
                         feeLabel={formatFee(totalAmount)}
+                        totalAmount={totalAmount}
                         usesSessions={usesSessions}
                         classes={plan.classes}
                         formData={confirmData}
@@ -355,11 +425,7 @@ export function CourseRegistrationFlow({ course, plan }: CourseRegistrationFlowP
                       </div>
                     </div>
 
-                    <RegistrationPriceSummary
-                      studentCount={studentCount}
-                      pricePerStudent={pricePerStudent}
-                      totalAmount={totalAmount}
-                    />
+                    <RegistrationPriceSummary {...summaryProps} />
                   </div>
                 </motion.div>
               ) : null}

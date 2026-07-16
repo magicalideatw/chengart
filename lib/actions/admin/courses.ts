@@ -31,39 +31,85 @@ function revalidateCoursePaths() {
   revalidatePath("/admin/courses");
 }
 
+type PostgrestErrorLike = {
+  message?: string;
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function formatSupabaseError(error: PostgrestErrorLike | Error | unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (!error || typeof error !== "object") {
+    return String(error ?? "Unknown error");
+  }
+
+  const pgError = error as PostgrestErrorLike;
+  const lines = [
+    pgError.message ? `message: ${pgError.message}` : null,
+    pgError.code ? `code: ${pgError.code}` : null,
+    pgError.details ? `details: ${pgError.details}` : null,
+    pgError.hint ? `hint: ${pgError.hint}` : null,
+  ].filter(Boolean);
+
+  return lines.join("\n") || "Unknown error";
+}
+
 export async function createCourse(
   input: CourseFormInput,
 ): Promise<AdminActionResult> {
-  await requireAuthenticatedUser();
+  try {
+    await requireAuthenticatedUser();
 
-  const parsed = adminCourseSchema.safeParse(input);
-  if (!parsed.success) {
+    const parsed = adminCourseSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "表單資料有誤",
+      };
+    }
+
+    const supabase = await getMutationClient();
+    if (!supabase) return mutationUnavailable();
+
+    const { error } = await supabase
+      .from("courses")
+      .insert(mapCourseToDb(parsed.data));
+
+    if (error) {
+      console.error("[createCourseAction]", error);
+      console.error({
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+
+      if (error.code === "42501") {
+        return {
+          success: false,
+          error: `無寫入權限。請確認已登入，並在 Supabase 執行 004_admin_auth_policies.sql\n${formatSupabaseError(error)}`,
+        };
+      }
+
+      return {
+        success: false,
+        error: `新增課程失敗\n${formatSupabaseError(error)}`,
+      };
+    }
+
+    revalidateCoursePaths();
+    return { success: true };
+  } catch (error) {
+    console.error("[createCourseAction]", error);
     return {
       success: false,
-      error: parsed.error.issues[0]?.message ?? "表單資料有誤",
+      error: `新增課程失敗\n${formatSupabaseError(error)}`,
     };
   }
-
-  const supabase = await getMutationClient();
-  if (!supabase) return mutationUnavailable();
-
-  const { error } = await supabase
-    .from("courses")
-    .insert(mapCourseToDb(parsed.data));
-
-  if (error) {
-    console.error("Create course failed:", error.message);
-    return {
-      success: false,
-      error:
-        error.code === "42501"
-          ? "無寫入權限。請確認已登入，並在 Supabase 執行 004_admin_auth_policies.sql"
-          : "新增課程失敗，請稍後再試",
-    };
-  }
-
-  revalidateCoursePaths();
-  return { success: true };
 }
 
 export async function updateCourse(
@@ -104,31 +150,13 @@ export async function updateCourse(
   return { success: true };
 }
 
-export async function deleteCourse(id: string): Promise<AdminActionResult> {
+export async function deleteCourse(_id: string): Promise<AdminActionResult> {
   await requireAuthenticatedUser();
 
-  const supabase = await getMutationClient();
-  if (!supabase) return mutationUnavailable();
-
-  const { error } = await supabase.from("courses").delete().eq("id", id);
-
-  if (error) {
-    if (error.code === "23503") {
-      return { success: false, error: "此課程已有報名紀錄，無法刪除" };
-    }
-
-    console.error("Delete course failed:", error.message);
-    return {
-      success: false,
-      error:
-        error.code === "42501"
-          ? "無寫入權限。請確認已登入，並在 Supabase 執行 004_admin_auth_policies.sql"
-          : "刪除課程失敗，請稍後再試",
-    };
-  }
-
-  revalidateCoursePaths();
-  return { success: true };
+  return {
+    success: false,
+    error: "請使用活動管理中的「刪除活動」對話框（封存或永久刪除）",
+  };
 }
 
 export type UploadCourseCoverResult =
@@ -174,7 +202,7 @@ export async function uploadCourseCover(
       success: false,
       error:
         error.message.includes("Bucket not found")
-          ? "請先在 Supabase 執行 020_course_covers_storage_paths.sql"
+          ? "請先在 Supabase 執行 010_event_covers_storage.sql"
           : "上傳圖片失敗，請稍後再試",
     };
   }

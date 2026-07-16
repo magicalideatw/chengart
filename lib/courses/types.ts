@@ -1,5 +1,8 @@
-import type { PaymentMethod, PaidPaymentMethod } from "@/lib/payment/types";
+import type { DiscountType } from "@/lib/pricing/types";
 import type { RegistrationMode } from "@/lib/courses/registration-mode";
+import type { ActivityType } from "@/lib/courses/activity-type";
+import type { ParticipationMethod } from "@/lib/courses/participation-method";
+import type { PaymentMethod, PaidPaymentMethod } from "@/lib/payment/types";
 
 export const COURSE_CATEGORIES = [
   "冬夏令營",
@@ -19,6 +22,11 @@ export type Course = {
   category: string;
   description: string;
   courseDetails: string;
+  activityType: ActivityType;
+  activityRules: string;
+  participationMethod: ParticipationMethod;
+  externalUrl: string | null;
+  actionButtonText: string;
   sessionDate: string;
   sessionTime: string;
   capacity: number;
@@ -31,6 +39,14 @@ export type Course = {
   registrationDeadline: string | null;
   showRemainingCapacity: boolean;
   transferDeadlineDays: number | null;
+  earlyBirdEnabled: boolean;
+  earlyBirdDeadline: string | null;
+  earlyBirdDiscountType: DiscountType | null;
+  earlyBirdDiscountValue: number;
+  groupDiscountEnabled: boolean;
+  groupDiscountMinStudents: number | null;
+  groupDiscountType: DiscountType | null;
+  groupDiscountValue: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -50,6 +66,10 @@ export type CourseListing = {
   pricePerStudent: number;
   href: string;
   isOpen: boolean;
+  activityType: ActivityType;
+  participationMethod: ParticipationMethod;
+  externalUrl: string | null;
+  actionButtonText: string;
 };
 
 export type CourseFormInput = {
@@ -57,15 +77,28 @@ export type CourseFormInput = {
   category: string;
   description: string;
   courseDetails: string;
+  activityType: ActivityType;
+  activityRules: string;
+  participationMethod: ParticipationMethod;
+  externalUrl: string;
+  actionButtonText: string;
+  isOpen: boolean;
   sessionDate: string;
   sessionTime: string;
   capacity: number;
   coverImage: string;
-  isOpen: boolean;
   allowedPaymentMethods: PaidPaymentMethod[];
   registrationMode: RegistrationMode;
   pricePerStudent: number;
   registrationDeadline: string;
   showRemainingCapacity: boolean;
   transferDeadlineDays: number | null;
+  earlyBirdEnabled: boolean;
+  earlyBirdDeadline: string;
+  earlyBirdDiscountType: DiscountType | null;
+  earlyBirdDiscountValue: number;
+  groupDiscountEnabled: boolean;
+  groupDiscountMinStudents: number | null;
+  groupDiscountType: DiscountType | null;
+  groupDiscountValue: number;
 };

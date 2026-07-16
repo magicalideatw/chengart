@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
+import { ActivityCta } from "@/components/courses/ActivityCta";
 import { formatFee } from "@/lib/admin/format";
 import type { CourseListing } from "@/lib/courses/types";
 
@@ -51,15 +51,16 @@ export function CourseCard({ course, index }: CourseCardProps) {
           </span>
         </div>
 
-        <Link
-          href={course.href}
-          className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-foreground transition group-hover:text-gold"
-        >
-          報名課程
-          <span className="transition-transform group-hover:translate-x-0.5">
-            →
-          </span>
-        </Link>
+        <div className="mt-5">
+          <ActivityCta
+            isOpen={course.isOpen}
+            participationMethod={course.participationMethod}
+            externalUrl={course.externalUrl}
+            actionButtonText={course.actionButtonText}
+            internalHref={course.href}
+            variant="card"
+          />
+        </div>
       </div>
     </motion.article>
   );

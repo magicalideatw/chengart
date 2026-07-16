@@ -1,7 +1,13 @@
-export const COURSE_COVERS_BUCKET = "course-covers";
+import { EVENT_COVERS_BUCKET } from "@/lib/events/constants";
 
-/** Legacy bucket from migration 019 — still readable for old uploads */
+/** Shared with events — see 010_event_covers_storage.sql */
+export const COURSE_COVERS_BUCKET = EVENT_COVERS_BUCKET;
+
+/** Legacy bucket/prefix from migration 019 — files resolve via event-covers */
 export const LEGACY_COURSE_COVERS_BUCKET = "courses";
+
+/** Deprecated prefix from migration 020 — files resolve via event-covers */
+export const DEPRECATED_COURSE_COVERS_BUCKET = "course-covers";
 
 export const COURSE_COVER_MAX_FILE_SIZE = 30 * 1024 * 1024;
 

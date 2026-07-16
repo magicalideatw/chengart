@@ -5,7 +5,10 @@ import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import type { PaymentMethod } from "@/lib/payment/types";
-import { PAYMENT_METHOD_LABELS } from "@/lib/payment/types";
+import {
+  resolveConfirmStepSubtitle,
+  resolvePaymentMethodDisplayLabel,
+} from "@/lib/payment/types";
 import { formatGender } from "@/lib/registration/gender";
 
 type ConfirmStepProps = {
@@ -17,6 +20,7 @@ type ConfirmStepProps = {
   classes: ClassWithSessionsOption[];
   formData: RegistrationOrderFormValues;
   variant: "adult" | "parent";
+  totalAmount: number;
   paymentMethod?: PaymentMethod | null;
 };
 
@@ -42,18 +46,21 @@ export function ConfirmStep({
   classes,
   formData,
   variant,
+  totalAmount,
   paymentMethod,
 }: ConfirmStepProps) {
   const contactLabel = variant === "adult" ? "姓名" : "家長姓名";
+  const paymentMethodLabel = resolvePaymentMethodDisplayLabel({
+    totalAmount,
+    paymentMethod,
+  });
 
   const rows = [
     { label: "課程", value: courseTitle },
     ...(dateLabel ? [{ label: "日期", value: dateLabel }] : []),
     ...(classTime ? [{ label: "時間", value: classTime }] : []),
     { label: "費用", value: feeLabel },
-    ...(paymentMethod
-      ? [{ label: "付款方式", value: PAYMENT_METHOD_LABELS[paymentMethod] }]
-      : []),
+    { label: "付款方式", value: paymentMethodLabel },
     { label: contactLabel, value: formData.name },
     { label: "電話", value: formData.phone },
     { label: "Email", value: formData.email },
@@ -78,11 +85,7 @@ export function ConfirmStep({
           確認資料
         </p>
         <p className="mt-2 text-sm text-muted">
-          {paymentMethod === "free"
-            ? "確認無誤後，將直接完成報名。"
-            : paymentMethod === "bank_transfer"
-              ? "確認無誤後，將顯示銀行匯款資訊。"
-              : "確認無誤後，將前往安全付款頁面（支援 LINE Pay、信用卡、ATM）。"}
+          {resolveConfirmStepSubtitle({ totalAmount, paymentMethod })}
         </p>
       </div>
 
@@ -107,10 +110,7 @@ export function ConfirmStep({
             <p className="font-medium text-foreground">{formData.students[0]?.studentName || "—"}</p>
             <p className="mt-1 text-sm text-muted">
               年齡 {formData.students[0]?.studentAge || "—"} ·{" "}
-              性別 {formatGender(formData.students[0]?.gender)} ·{" "}
-              {formData.students[0]?.isFirstTime === "yes"
-                ? "第一次參加"
-                : "非第一次參加"}
+              性別 {formatGender(formData.students[0]?.gender)}
             </p>
             {usesSessions ? (
               <ul className="mt-3 space-y-1 text-sm text-foreground">
@@ -136,8 +136,7 @@ export function ConfirmStep({
                   學生 {index + 1}：{student.studentName || "—"}
                 </p>
                 <p className="mt-1 text-sm text-muted">
-                  年齡 {student.studentAge || "—"} · 性別 {formatGender(student.gender)} ·{" "}
-                  {student.isFirstTime === "yes" ? "第一次參加" : "非第一次參加"}
+                  年齡 {student.studentAge || "—"} · 性別 {formatGender(student.gender)}
                 </p>
                 {student.note?.trim() ? (
                   <p className="mt-2 text-sm text-muted">備註：{student.note.trim()}</p>

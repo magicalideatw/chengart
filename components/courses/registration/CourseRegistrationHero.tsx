@@ -2,10 +2,10 @@
 
 import { motion } from "framer-motion";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
+import { ActivityCta } from "@/components/courses/ActivityCta";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import {
   getEnrollmentStatusLabel,
-  isCourseRegistrationOpen,
 } from "@/lib/courses/enrollment";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { RegistrationMode } from "@/lib/courses/registration-mode";
@@ -32,18 +32,6 @@ export function CourseRegistrationHero({
     usesSessions,
     hasSelectableSessions: plan.hasSelectableSessions,
   });
-  const canRegister = isCourseRegistrationOpen({
-    course,
-    usesSessions,
-    hasSelectableSessions: plan.hasSelectableSessions,
-  });
-
-  const heroHint =
-    registrationMode === "adult"
-      ? "請填寫報名資料並選擇上課日期"
-      : registrationMode === "parent"
-        ? "請填寫家長資料，並為每位學生選擇上課日期"
-        : "請選擇報名方式並填寫資料";
 
   return (
     <section className="relative">
@@ -112,29 +100,18 @@ export function CourseRegistrationHero({
               </span>
             ) : null}
           </div>
-          {canRegister ? (
-            usesSessions ? (
-              <p className="mt-8 text-sm text-white/80">{heroHint}</p>
-            ) : (
-              <button
-                type="button"
-                onClick={onRegister}
-                className="mt-8 inline-flex items-center justify-center rounded-full bg-gold px-8 py-3.5 text-sm font-medium text-white transition hover:bg-gold-light"
-              >
-                立即報名
-              </button>
-            )
-          ) : (
-            <p className="mt-8 inline-flex rounded-full border border-white/20 bg-black/30 px-6 py-3 text-sm text-white/80">
-              {enrollmentStatus === "未開放"
-                ? "目前未開放報名"
-                : enrollmentStatus === "已截止"
-                  ? "報名已截止"
-                  : enrollmentStatus === "已額滿"
-                    ? "已額滿"
-                    : "目前無法報名"}
-            </p>
-          )}
+          <div className="mt-8">
+            <ActivityCta
+              isOpen={course.isOpen}
+              isFull={course.isFull}
+              participationMethod={course.participationMethod}
+              externalUrl={course.externalUrl}
+              actionButtonText={course.actionButtonText}
+              internalHref={`/courses/${course.id}`}
+              onInternalAction={onRegister}
+              variant="hero"
+            />
+          </div>
         </motion.div>
       </div>
     </section>

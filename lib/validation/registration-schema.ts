@@ -8,7 +8,7 @@ export const registrationStudentSchema = z.object({
   studentName: z.string().min(1, "請填寫學生姓名"),
   studentAge: z.string().min(1, "請填寫年齡"),
   gender: genderSchema,
-  isFirstTime: z.enum(["yes", "no"], { message: "請選擇是否第一次參加" }),
+  isFirstTime: z.enum(["yes", "no"]).optional(),
   note: z.string().optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
 });
@@ -37,7 +37,7 @@ export const adultFormSchema = z.object({
   email: z.string().min(1, "請填寫 Email").email("請輸入有效的 Email"),
   age: z.string().min(1, "請填寫年齡"),
   gender: genderSchema,
-  isFirstTime: z.enum(["yes", "no"], { message: "請選擇是否第一次參加" }),
+  isFirstTime: z.enum(["yes", "no"]).optional(),
   note: z.string().optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
 });
@@ -58,6 +58,8 @@ export const registrationOrderFormSchema = parentFormSchema.extend({
   paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   registrationType: z.enum(["adult", "parent"]).optional(),
   sessionIds: z.array(z.string().uuid()).optional(),
+  promoCode: z.string().trim().optional(),
+  pricingSnapshot: z.custom<import("@/lib/pricing/types").PricingSnapshot>().optional(),
   studentName: z.string().optional(),
   studentAge: z.string().optional(),
   isFirstTime: z.enum(["yes", "no"]).optional(),
@@ -75,7 +77,6 @@ export function createDefaultStudent(
     clientId: `student-${index + 1}`,
     studentName: "",
     studentAge: "",
-    isFirstTime: "yes",
     note: "",
     sessionIds: [],
   } as unknown as RegistrationStudentInput;
@@ -94,7 +95,6 @@ export const defaultAdultFormValues = {
   phone: "",
   email: "",
   age: "",
-  isFirstTime: "yes" as const,
   note: "",
   sessionIds: [] as string[],
 } as AdultFormValues;
@@ -115,7 +115,6 @@ export function adultFormToOrderData(
         studentName: values.name,
         studentAge: values.age,
         gender: values.gender,
-        isFirstTime: values.isFirstTime,
         note: values.note,
         sessionIds: values.sessionIds ?? [],
       },

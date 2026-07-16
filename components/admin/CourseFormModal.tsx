@@ -1,10 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Upload } from "lucide-react";
 import { uploadCourseCover } from "@/lib/actions/admin/courses";
+import { getPromoCodesForCourseAction } from "@/lib/actions/admin/promo-codes";
 import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
+import { PromoCodeSection } from "@/components/admin/PromoCodeSection";
+import { TicketTypeSection } from "@/components/admin/TicketTypeSection";
+import { getTicketTypesForCourseAction } from "@/lib/actions/admin/ticket-types";
 import {
   COURSE_CATEGORIES,
   TRANSFER_DEADLINE_DAY_OPTIONS,
@@ -17,10 +22,23 @@ import {
   type RegistrationMode,
 } from "@/lib/courses/registration-mode";
 import {
+  ACTIVITY_TYPES,
+  ACTIVITY_TYPE_LABELS,
+  type ActivityType,
+} from "@/lib/courses/activity-type";
+import {
+  PARTICIPATION_METHODS,
+  PARTICIPATION_METHOD_LABELS,
+  getDefaultActionButtonText,
+  type ParticipationMethod,
+} from "@/lib/courses/participation-method";
+import {
   PAID_PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   type PaidPaymentMethod,
 } from "@/lib/payment/types";
+import type { PromoCodeRecord } from "@/lib/pricing/types";
+import type { TicketTypeRecord } from "@/lib/ticket-types/types";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -34,17 +52,30 @@ const emptyForm: CourseFormInput = {
   category: "舞蹈",
   description: "",
   courseDetails: "",
+  activityType: "course",
+  activityRules: "",
+  participationMethod: "internal",
+  externalUrl: "",
+  actionButtonText: getDefaultActionButtonText("course"),
+  isOpen: true,
   sessionDate: "",
   sessionTime: "",
   capacity: 5,
   coverImage: "",
-  isOpen: true,
   allowedPaymentMethods: ["ecpay"],
   registrationMode: "adult",
   pricePerStudent: 0,
   registrationDeadline: "",
   showRemainingCapacity: true,
   transferDeadlineDays: 7,
+  earlyBirdEnabled: false,
+  earlyBirdDeadline: "",
+  earlyBirdDiscountType: "percent",
+  earlyBirdDiscountValue: 0,
+  groupDiscountEnabled: false,
+  groupDiscountMinStudents: 2,
+  groupDiscountType: "percent",
+  groupDiscountValue: 0,
 };
 
 const inputClass =
@@ -78,11 +109,16 @@ function courseToFormInput(course: Course): CourseFormInput {
     category: course.category,
     description: course.description,
     courseDetails: course.courseDetails,
-    sessionDate: course.sessionDate,
+    activityType: course.activityType,
+    activityRules: course.activityRules,
+    participationMethod: course.participationMethod,
+    externalUrl: course.externalUrl ?? "",
+  actionButtonText: course.actionButtonText,
+  isOpen: course.isOpen,
+  sessionDate: course.sessionDate,
     sessionTime: course.sessionTime,
     capacity: course.capacity,
     coverImage: course.coverImage,
-    isOpen: course.isOpen,
     allowedPaymentMethods: course.allowedPaymentMethods.filter(
       (method): method is PaidPaymentMethod =>
         method === "ecpay" || method === "bank_transfer",
@@ -92,6 +128,14 @@ function courseToFormInput(course: Course): CourseFormInput {
     registrationDeadline: course.registrationDeadline ?? "",
     showRemainingCapacity: course.showRemainingCapacity,
     transferDeadlineDays: course.transferDeadlineDays,
+    earlyBirdEnabled: course.earlyBirdEnabled,
+    earlyBirdDeadline: course.earlyBirdDeadline ?? "",
+    earlyBirdDiscountType: course.earlyBirdDiscountType ?? "percent",
+    earlyBirdDiscountValue: course.earlyBirdDiscountValue,
+    groupDiscountEnabled: course.groupDiscountEnabled,
+    groupDiscountMinStudents: course.groupDiscountMinStudents ?? 2,
+    groupDiscountType: course.groupDiscountType ?? "percent",
+    groupDiscountValue: course.groupDiscountValue,
   };
 }
 
@@ -106,6 +150,9 @@ export function CourseFormModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [promoCodes, setPromoCodes] = useState<PromoCodeRecord[]>([]);
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeRecord[]>([]);
+  const router = useRouter();
 
   const isFreeCourse = form.pricePerStudent <= 0;
   const usesBankTransfer = form.allowedPaymentMethods.includes("bank_transfer");
@@ -124,6 +171,32 @@ export function CourseFormModal({
         label: PAYMENT_METHOD_LABELS[method],
       })),
     [],
+  );
+
+  useEffect(() => {
+    if (!course?.id) return;
+
+    void getPromoCodesForCourseAction(course.id).then(setPromoCodes);
+    void getTicketTypesForCourseAction(course.id).then(setTicketTypes);
+  }, [course?.id]);
+
+  const renderDiscountTypeRadios = (
+    value: "fixed" | "percent" | null,
+    onChange: (next: "fixed" | "percent") => void,
+  ) => (
+    <div className="flex flex-wrap gap-4">
+      {(["fixed", "percent"] as const).map((type) => (
+        <label key={type} className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="radio"
+            checked={value === type}
+            onChange={() => onChange(type)}
+            className="h-4 w-4 accent-gold"
+          />
+          {type === "fixed" ? "固定金額" : "百分比"}
+        </label>
+      ))}
+    </div>
   );
 
   const handleCoverUpload = async (file: File | null) => {
@@ -189,6 +262,27 @@ export function CourseFormModal({
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
           <Section title="基本資訊">
             <div>
+              <label className="text-sm font-medium text-foreground">活動類型</label>
+              <div className="mt-3 space-y-2">
+                {ACTIVITY_TYPES.map((type) => (
+                  <label
+                    key={type}
+                    className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                  >
+                    <input
+                      type="radio"
+                      name="activityType"
+                      checked={form.activityType === type}
+                      onChange={() => updateField("activityType", type as ActivityType)}
+                      className="h-4 w-4 accent-gold"
+                    />
+                    {ACTIVITY_TYPE_LABELS[type]}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="text-sm font-medium text-foreground">課程名稱</label>
               <input
                 value={form.title}
@@ -221,6 +315,20 @@ export function CourseFormModal({
                 placeholder="簡短介紹，顯示於列表與頁面頂部"
                 className={`${inputClass} resize-none`}
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">活動規則</label>
+              <textarea
+                rows={4}
+                value={form.activityRules}
+                onChange={(e) => updateField("activityRules", e.target.value)}
+                placeholder="例如：每位入場者皆須購票。不分成人、兒童。一人一票。"
+                className={`${inputClass} resize-none`}
+              />
+              <p className="mt-2 text-xs text-muted">
+                選填。若有填寫，前台活動頁會顯示「活動規則」區塊。
+              </p>
             </div>
 
             <div>
@@ -277,6 +385,69 @@ export function CourseFormModal({
             </div>
           </Section>
 
+          <Section title="參加方式">
+            <div>
+              <label className="text-sm font-medium text-foreground">參加方式</label>
+              <div className="mt-3 space-y-2">
+                {PARTICIPATION_METHODS.map((method) => (
+                  <label
+                    key={method}
+                    className="flex cursor-pointer items-center gap-3 text-sm text-foreground"
+                  >
+                    <input
+                      type="radio"
+                      name="participationMethod"
+                      checked={form.participationMethod === method}
+                      onChange={() => updateField("participationMethod", method as ParticipationMethod)}
+                      className="h-4 w-4 accent-gold"
+                    />
+                    {PARTICIPATION_METHOD_LABELS[method]}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {form.participationMethod === "external" ? (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-foreground">外部網址</label>
+                  <input
+                    type="url"
+                    value={form.externalUrl}
+                    onChange={(e) => updateField("externalUrl", e.target.value)}
+                    placeholder="https://..."
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">按鈕文字</label>
+                  <input
+                    value={form.actionButtonText}
+                    onChange={(e) => updateField("actionButtonText", e.target.value)}
+                    placeholder={getDefaultActionButtonText(form.activityType)}
+                    className={inputClass}
+                  />
+                  <p className="mt-2 text-xs text-muted">
+                    例如：查看詳情、前往報名、立即購票、立即報名
+                  </p>
+                </div>
+              </>
+            ) : form.participationMethod === "internal" ? (
+              <div>
+                <label className="text-sm font-medium text-foreground">按鈕文字</label>
+                <input
+                  value={form.actionButtonText}
+                  onChange={(e) => updateField("actionButtonText", e.target.value)}
+                  placeholder={getDefaultActionButtonText(form.activityType)}
+                  className={inputClass}
+                />
+                <p className="mt-2 text-xs text-muted">
+                  預設：課程為「立即報名」、演出為「立即購票」
+                </p>
+              </div>
+            ) : null}
+          </Section>
+
           <Section
             title="報名設定"
             description="控制前台報名表單顯示方式"
@@ -322,6 +493,104 @@ export function CourseFormModal({
               </p>
             </div>
           </Section>
+
+          {!isFreeCourse ? (
+            <>
+              <Section title="早鳥">
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.earlyBirdEnabled}
+                    onChange={(event) =>
+                      updateField("earlyBirdEnabled", event.target.checked)
+                    }
+                    className="h-4 w-4 accent-gold"
+                  />
+                  啟用
+                </label>
+                {form.earlyBirdEnabled ? (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">截止日期</label>
+                      <input
+                        type="date"
+                        value={form.earlyBirdDeadline}
+                        onChange={(event) =>
+                          updateField("earlyBirdDeadline", event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    {renderDiscountTypeRadios(
+                      form.earlyBirdDiscountType,
+                      (type) => updateField("earlyBirdDiscountType", type),
+                    )}
+                    <div>
+                      <label className="text-sm font-medium text-foreground">折扣值</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.earlyBirdDiscountValue}
+                        onChange={(event) =>
+                          updateField("earlyBirdDiscountValue", Number(event.target.value))
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </Section>
+
+              <Section title="團報">
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.groupDiscountEnabled}
+                    onChange={(event) =>
+                      updateField("groupDiscountEnabled", event.target.checked)
+                    }
+                    className="h-4 w-4 accent-gold"
+                  />
+                  啟用
+                </label>
+                {form.groupDiscountEnabled ? (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">人數門檻</label>
+                      <input
+                        type="number"
+                        min={2}
+                        value={form.groupDiscountMinStudents ?? 2}
+                        onChange={(event) =>
+                          updateField(
+                            "groupDiscountMinStudents",
+                            Number(event.target.value),
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    {renderDiscountTypeRadios(
+                      form.groupDiscountType,
+                      (type) => updateField("groupDiscountType", type),
+                    )}
+                    <div>
+                      <label className="text-sm font-medium text-foreground">折扣值</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.groupDiscountValue}
+                        onChange={(event) =>
+                          updateField("groupDiscountValue", Number(event.target.value))
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </Section>
+            </>
+          ) : null}
 
           <Section
             title="付款方式"
@@ -462,8 +731,32 @@ export function CourseFormModal({
             </p>
           </Section>
 
+          {course?.id ? (
+            <TicketTypeSection
+              courseId={course.id}
+              ticketTypes={ticketTypes}
+              canMutate
+              onChanged={() => {
+                void getTicketTypesForCourseAction(course.id).then(setTicketTypes);
+                router.refresh();
+              }}
+            />
+          ) : null}
+
+          {course?.id && !isFreeCourse ? (
+            <PromoCodeSection
+              courseId={course.id}
+              promoCodes={promoCodes}
+              canMutate
+              onChanged={() => {
+                void getPromoCodesForCourseAction(course.id).then(setPromoCodes);
+                router.refresh();
+              }}
+            />
+          ) : null}
+
           {error && (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p className="whitespace-pre-wrap rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </p>
           )}

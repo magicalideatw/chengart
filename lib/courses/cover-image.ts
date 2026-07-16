@@ -2,12 +2,19 @@ import {
   COURSE_COVER_PATH_PREFIX,
   COURSE_COVERS_BUCKET,
   COURSE_PLACEHOLDER_IMAGE,
+  DEPRECATED_COURSE_COVERS_BUCKET,
   LEGACY_COURSE_COVERS_BUCKET,
 } from "@/lib/courses/constants";
 
 const EXTERNAL_URL_PATTERN = /^https?:\/\//i;
 const SUPABASE_PUBLIC_STORAGE_PATTERN =
   /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/i;
+
+const LEGACY_COVER_BUCKETS = new Set([
+  COURSE_COVERS_BUCKET,
+  DEPRECATED_COURSE_COVERS_BUCKET,
+  LEGACY_COURSE_COVERS_BUCKET,
+]);
 
 function getSupabaseUrl(): string | null {
   return process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ?? null;
@@ -45,6 +52,29 @@ function parseSupabasePublicStorageUrl(
   return { bucket, objectPath };
 }
 
+function extractCourseCoverObjectPath(trimmed: string): string | null {
+  if (trimmed.startsWith(COURSE_COVER_PATH_PREFIX)) {
+    const objectPath = trimmed.slice(COURSE_COVER_PATH_PREFIX.length);
+    return objectPath || null;
+  }
+
+  if (trimmed.startsWith(`${DEPRECATED_COURSE_COVERS_BUCKET}/`)) {
+    const objectPath = trimmed.slice(`${DEPRECATED_COURSE_COVERS_BUCKET}/`.length);
+    return objectPath || null;
+  }
+
+  if (trimmed.startsWith(`${LEGACY_COURSE_COVERS_BUCKET}/`)) {
+    const objectPath = trimmed.slice(`${LEGACY_COURSE_COVERS_BUCKET}/`.length);
+    return objectPath || null;
+  }
+
+  if (!trimmed.includes("/")) {
+    return trimmed;
+  }
+
+  return null;
+}
+
 function parseStoredCourseCoverPath(
   value: string,
 ): { bucket: string; objectPath: string } | null {
@@ -54,29 +84,21 @@ function parseStoredCourseCoverPath(
   if (EXTERNAL_URL_PATTERN.test(trimmed)) {
     const parsed = parseSupabasePublicStorageUrl(trimmed);
     if (!parsed) return null;
-    return parsed;
+
+    if (LEGACY_COVER_BUCKETS.has(parsed.bucket)) {
+      return { bucket: COURSE_COVERS_BUCKET, objectPath: parsed.objectPath };
+    }
+
+    return null;
   }
 
-  if (trimmed.startsWith(COURSE_COVER_PATH_PREFIX)) {
-    const objectPath = trimmed.slice(COURSE_COVER_PATH_PREFIX.length);
-    if (!objectPath) return null;
-    return { bucket: COURSE_COVERS_BUCKET, objectPath };
-  }
+  const objectPath = extractCourseCoverObjectPath(trimmed);
+  if (!objectPath) return null;
 
-  if (trimmed.startsWith(`${LEGACY_COURSE_COVERS_BUCKET}/`)) {
-    const objectPath = trimmed.slice(`${LEGACY_COURSE_COVERS_BUCKET}/`.length);
-    if (!objectPath) return null;
-    return { bucket: LEGACY_COURSE_COVERS_BUCKET, objectPath };
-  }
-
-  if (!trimmed.includes("/")) {
-    return { bucket: LEGACY_COURSE_COVERS_BUCKET, objectPath: trimmed };
-  }
-
-  return null;
+  return { bucket: COURSE_COVERS_BUCKET, objectPath };
 }
 
-/** Normalize DB value to a storage path like `course-covers/uuid.webp`, or empty string */
+/** Normalize DB value to a storage path like `event-covers/uuid.webp`, or empty string */
 export function normalizeCourseCoverStorageValue(
   coverImage: string | null | undefined,
 ): string {
@@ -87,28 +109,17 @@ export function normalizeCourseCoverStorageValue(
     const parsed = parseSupabasePublicStorageUrl(trimmed);
     if (!parsed) return "";
 
-    if (
-      parsed.bucket === COURSE_COVERS_BUCKET ||
-      parsed.bucket === LEGACY_COURSE_COVERS_BUCKET
-    ) {
-      return `${parsed.bucket}/${parsed.objectPath}`;
+    if (LEGACY_COVER_BUCKETS.has(parsed.bucket)) {
+      return `${COURSE_COVER_PATH_PREFIX}${parsed.objectPath}`;
     }
 
     return "";
   }
 
-  if (
-    trimmed.startsWith(COURSE_COVER_PATH_PREFIX) ||
-    trimmed.startsWith(`${LEGACY_COURSE_COVERS_BUCKET}/`)
-  ) {
-    return trimmed;
-  }
+  const objectPath = extractCourseCoverObjectPath(trimmed);
+  if (!objectPath) return "";
 
-  if (!trimmed.includes("/")) {
-    return `${LEGACY_COURSE_COVERS_BUCKET}/${trimmed}`;
-  }
-
-  return "";
+  return `${COURSE_COVER_PATH_PREFIX}${objectPath}`;
 }
 
 export function sanitizeCourseCoverForStorage(

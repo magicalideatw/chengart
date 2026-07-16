@@ -1,7 +1,9 @@
 import {
   DEFAULT_BANK_TRANSFER_SETTINGS,
+  DEFAULT_EMAIL_SETTINGS,
   SYSTEM_SETTING_KEYS,
   type BankTransferSettings,
+  type EmailSettings,
 } from "@/lib/settings/types";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -79,6 +81,69 @@ export async function saveBankTransferSettings(
 
   if (error) {
     console.error("Failed to save bank transfer settings:", error.message);
+    return { success: false, error: "儲存設定失敗" };
+  }
+
+  return { success: true };
+}
+
+function parseEmailSettings(value: unknown): EmailSettings {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_EMAIL_SETTINGS;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return {
+    senderName:
+      typeof record.senderName === "string" && record.senderName.trim()
+        ? record.senderName.trim()
+        : DEFAULT_EMAIL_SETTINGS.senderName,
+    adminEmail:
+      typeof record.adminEmail === "string" ? record.adminEmail.trim() : "",
+    replyToEmail:
+      typeof record.replyToEmail === "string" ? record.replyToEmail.trim() : "",
+  };
+}
+
+export async function getEmailSettings(): Promise<EmailSettings> {
+  if (!isSupabaseConfigured()) {
+    return DEFAULT_EMAIL_SETTINGS;
+  }
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", SYSTEM_SETTING_KEYS.email)
+    .maybeSingle();
+
+  if (error || !data?.value) {
+    return DEFAULT_EMAIL_SETTINGS;
+  }
+
+  return parseEmailSettings(data.value);
+}
+
+export async function saveEmailSettings(
+  settings: EmailSettings,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: "Supabase 尚未設定" };
+  }
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.from("system_settings").upsert(
+    {
+      key: SYSTEM_SETTING_KEYS.email,
+      value: settings,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "key" },
+  );
+
+  if (error) {
+    console.error("Failed to save email settings:", error.message);
     return { success: false, error: "儲存設定失敗" };
   }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/lib/auth/session";
 import type { AdminActionResult, AdminOrderUpdate } from "@/lib/admin/types";
+import { revalidateAdminActivityStatsPaths } from "@/lib/admin/revalidate-paths";
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import {
   calculateOrderTotal,
@@ -33,63 +34,6 @@ async function getMutationClient() {
   return createServerClient();
 }
 
-async function incrementSessionCapacity(sessionId: string): Promise<void> {
-  const supabase = await getMutationClient();
-  if (!supabase) return;
-
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, remaining_capacity, capacity, status")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session) return;
-
-  const nextRemaining = Math.min(
-    session.remaining_capacity + 1,
-    session.capacity,
-  );
-
-  await supabase
-    .from("sessions")
-    .update({
-      remaining_capacity: nextRemaining,
-      status: nextRemaining > 0 && session.status === "full" ? "open" : session.status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId);
-}
-
-async function decrementSessionCapacity(sessionId: string): Promise<boolean> {
-  const supabase = await getMutationClient();
-  if (!supabase) return false;
-
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, remaining_capacity, status")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if (!session || session.remaining_capacity <= 0 || session.status !== "open") {
-    return false;
-  }
-
-  const nextRemaining = session.remaining_capacity - 1;
-  const { data } = await supabase
-    .from("sessions")
-    .update({
-      remaining_capacity: nextRemaining,
-      status: nextRemaining <= 0 ? "full" : session.status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", sessionId)
-    .eq("remaining_capacity", session.remaining_capacity)
-    .select("id")
-    .maybeSingle();
-
-  return Boolean(data);
-}
-
 export async function deleteRegistration(ids: string[]): Promise<AdminActionResult> {
   await requireAuthenticatedUser();
 
@@ -105,12 +49,6 @@ export async function deleteRegistration(ids: string[]): Promise<AdminActionResu
     .from("registrations")
     .select("id, session_id, order_id")
     .in("id", uniqueIds);
-
-  for (const row of rows ?? []) {
-    if (row.session_id) {
-      await incrementSessionCapacity(row.session_id);
-    }
-  }
 
   const orderIds = [
     ...new Set((rows ?? []).map((row) => row.order_id).filter(Boolean)),
@@ -145,6 +83,7 @@ export async function deleteRegistration(ids: string[]): Promise<AdminActionResu
 
   revalidatePath("/admin");
   revalidatePath("/admin/registrations");
+  revalidateAdminActivityStatsPaths();
   return { success: true };
 }
 
@@ -359,19 +298,12 @@ export async function updateOrderRegistration(
       if (error) {
         return { success: false, error: "移除報名時段失敗" };
       }
-
-      await incrementSessionCapacity(sessionId);
     }
 
     for (const sessionId of toAdd) {
       const session = validation.data.sessions.find((item) => item.id === sessionId);
       if (!session) {
         return { success: false, error: "部分上課日期不存在" };
-      }
-
-      const decremented = await decrementSessionCapacity(sessionId);
-      if (!decremented) {
-        return { success: false, error: "部分上課日期已額滿" };
       }
 
       const insertPayload: Database["public"]["Tables"]["registrations"]["Insert"] = {
@@ -392,7 +324,6 @@ export async function updateOrderRegistration(
       const { error } = await supabase.from("registrations").insert(insertPayload);
 
       if (error) {
-        await incrementSessionCapacity(sessionId);
         if (error.message.includes("CLASS_FULL")) {
           return { success: false, error: "部分上課日期已額滿" };
         }

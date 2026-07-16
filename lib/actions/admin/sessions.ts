@@ -5,6 +5,7 @@ import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { getClassById } from "@/lib/classes/queries";
 import { generateWeekdayDates } from "@/lib/sessions/generate-dates";
 import { mapSessionToDb } from "@/lib/sessions/mappers";
+import { getEnrollmentCountForSession } from "@/lib/sessions/enrollment";
 import { getSessionDatesByClassId } from "@/lib/sessions/queries";
 import type {
   BulkGenerateSessionsInput,
@@ -82,7 +83,7 @@ export async function createSession(
 
   const { error } = await supabase
     .from("sessions")
-    .insert(mapSessionToDb(classId, parsed.data));
+    .insert(mapSessionToDb(classId, parsed.data, 0));
 
   if (error) {
     console.error("Create session failed:", error.message);
@@ -121,9 +122,11 @@ export async function updateSession(
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
+  const enrolledCount = await getEnrollmentCountForSession(sessionId);
+
   const { error } = await supabase
     .from("sessions")
-    .update(mapSessionToDb(classId, parsed.data))
+    .update(mapSessionToDb(classId, parsed.data, enrolledCount))
     .eq("id", sessionId)
     .eq("class_id", classId);
 

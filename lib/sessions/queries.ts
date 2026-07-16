@@ -1,6 +1,20 @@
+import { getEnrollmentCountsBySessionIdsForServer } from "@/lib/sessions/enrollment";
 import { mapSessionRow } from "@/lib/sessions/mappers";
 import type { ClassSession } from "@/lib/sessions/types";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+
+async function mapSessionRowsWithEnrollment(
+  rows: Record<string, unknown>[],
+): Promise<ClassSession[]> {
+  if (rows.length === 0) return [];
+
+  const sessionIds = rows.map((row) => String(row.id));
+  const enrollmentCounts = await getEnrollmentCountsBySessionIdsForServer(sessionIds);
+
+  return rows.map((row) =>
+    mapSessionRow(row, enrollmentCounts[String(row.id)] ?? 0),
+  );
+}
 
 export async function usesSessionsTable(): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
@@ -35,7 +49,7 @@ export async function getSessionsByClassId(
     return [];
   }
 
-  return (data ?? []).map((row) => mapSessionRow(row));
+  return mapSessionRowsWithEnrollment(data ?? []);
 }
 
 export async function getSessionDatesByClassId(

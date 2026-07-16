@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { heroImage, siteConfig } from "@/lib/data/site";
 import { Button } from "@/components/ui/Button";
 
+/** Future: optional Featured Activity slot for a highlighted home activity. */
 export function HeroSection() {
   const reduceMotion = useReducedMotion();
 
@@ -40,11 +41,11 @@ export function HeroSection() {
             </p>
 
             <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
-              <Button href="#activities" variant="gold">
-                最新活動
+              <Button href="#latest-performances" variant="gold">
+                最新演出
               </Button>
               <Button href="#courses" variant="outline">
-                探索課程
+                藝術課程
               </Button>
             </div>
           </motion.div>

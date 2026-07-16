@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SettingsManagement } from "@/components/admin/SettingsManagement";
 import { getAuthenticatedUser } from "@/lib/auth/session";
-import { getBankTransferSettings } from "@/lib/settings/queries";
+import { getBankTransferSettings, getEmailSettings } from "@/lib/settings/queries";
 
 export const metadata: Metadata = {
   title: "系統設定",
@@ -11,8 +11,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const [bankTransferSettings, user] = await Promise.all([
+  const [bankTransferSettings, emailSettings, user] = await Promise.all([
     getBankTransferSettings(),
+    getEmailSettings(),
     getAuthenticatedUser(),
   ]);
 
@@ -20,6 +21,7 @@ export default async function AdminSettingsPage() {
     <div className="min-h-screen bg-background">
       <SettingsManagement
         bankTransferSettings={bankTransferSettings}
+        emailSettings={emailSettings}
         canMutate={Boolean(user)}
       />
     </div>

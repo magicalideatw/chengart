@@ -3,6 +3,7 @@ import type { CourseClass } from "@/lib/classes/types";
 import { getCourseById } from "@/lib/courses/queries";
 import type { Course } from "@/lib/courses/types";
 import { mapSessionRow } from "@/lib/sessions/mappers";
+import { getEnrollmentCountsBySessionIds } from "@/lib/sessions/enrollment";
 import { getSessionsByClassId } from "@/lib/sessions/queries";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { ClassSession } from "@/lib/sessions/types";
@@ -122,7 +123,10 @@ export async function validateSessionSelection(
     return { success: false, error: "部分上課日期不存在，請重新整理後再試" };
   }
 
-  const sessions = data.map((row) => mapSessionRow(row));
+  const enrollmentCounts = await getEnrollmentCountsBySessionIds(uniqueIds);
+  const sessions = data.map((row) =>
+    mapSessionRow(row, enrollmentCounts[String(row.id)] ?? 0),
+  );
   const classMap = new Map<string, CourseClass>();
   const unitPrices = new Map<string, number>();
   let totalAmount = 0;

@@ -8,8 +8,10 @@ import { signOut } from "@/lib/actions/auth";
 
 const links = [
   { href: "/admin", label: "總覽", exact: true },
-  { href: "/admin/courses", label: "課程" },
+  { href: "/admin/courses", label: "活動管理" },
   { href: "/admin/registrations", label: "報名" },
+  { href: "/admin/performance-orders", label: "演出購票" },
+  { href: "/admin/attendance", label: "出席" },
   { href: "/admin/orders", label: "訂單" },
   { href: "/admin/settings", label: "設定" },
   { href: "/admin/announcements", label: "公告" },

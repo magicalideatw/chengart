@@ -65,15 +65,31 @@ export function Footer() {
             </div>
           </nav>
 
-          <div className="text-sm text-white/50">
+          <div id="contact" className="text-sm text-white/50">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
-              Email
+              聯絡資訊
             </p>
             <a
               href={`mailto:${siteConfig.email}`}
               className="mt-3 block transition hover:text-white"
             >
               {siteConfig.email}
+            </a>
+            <a
+              href={siteConfig.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 block transition hover:text-white"
+            >
+              Facebook
+            </a>
+            <a
+              href={siteConfig.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 block transition hover:text-white"
+            >
+              Instagram
             </a>
           </div>
         </div>
