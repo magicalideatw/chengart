@@ -1,6 +1,10 @@
 import { generateMerchantTradeNo, isEcpayConfigured } from "@/lib/ecpay/config";
 import type { Course } from "@/lib/courses/types";
 import {
+  buildAdminNotificationFromOrder,
+  sendNewPerformanceOrderEmail,
+} from "@/lib/email";
+import {
   notifyAdminNewOrder,
   notifyParentBankTransferPending,
 } from "@/lib/email/dispatch";
@@ -89,6 +93,14 @@ export async function finalizeCreatedOrder(input: {
     void notifyAdminNewOrder({ order, course: input.course }).catch((emailError) => {
       console.error("Admin new order email failed:", emailError);
     });
+
+    void sendNewPerformanceOrderEmail(
+      buildAdminNotificationFromOrder(order, {
+        paymentMethod: input.paymentMethod,
+      }),
+    ).catch((emailError) => {
+      console.error("Resend new performance order email failed:", emailError);
+    });
   }
 
   if (input.paymentMethod === "bank_transfer") {
@@ -112,6 +124,14 @@ export async function finalizeCreatedOrder(input: {
           console.error("Admin new order email failed:", emailError);
         },
       );
+
+      void sendNewPerformanceOrderEmail(
+        buildAdminNotificationFromOrder(paidOrder, {
+          paymentMethod: "free",
+        }),
+      ).catch((emailError) => {
+        console.error("Resend new performance order email failed:", emailError);
+      });
     }
 
     return {

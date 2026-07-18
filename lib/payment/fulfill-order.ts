@@ -4,6 +4,12 @@ import { canFulfillOrder, isOrderPaid, type OrderRecord } from "@/lib/orders/typ
 import { getCourseWithEnrollment } from "@/lib/courses/queries";
 import { isBeforeRegistrationDeadline } from "@/lib/courses/enrollment";
 import {
+  buildAdminNotificationFromOrder,
+  sendNewCourseRegistrationEmail,
+  sendNewPerformanceOrderEmail,
+  sendPaymentSuccessEmail,
+} from "@/lib/email";
+import {
   notifyParentPaymentConfirmed,
   notifyParentPaymentSuccess,
   notifyParentRegistrationSuccess,
@@ -382,6 +388,19 @@ async function completePerformanceOrderAfterFulfillment(input: {
         course,
       });
     }
+
+    if (
+      input.paymentMethod === "ecpay" ||
+      input.paymentMethod === "bank_transfer"
+    ) {
+      void sendPaymentSuccessEmail(
+        buildAdminNotificationFromOrder(paidOrder, {
+          paymentMethod: input.paymentMethod,
+        }),
+      ).catch((emailError) => {
+        console.error("Resend payment success email failed:", emailError);
+      });
+    }
   } catch (error) {
     console.error("Performance order email notification failed:", error);
   }
@@ -511,6 +530,27 @@ async function completeOrderAfterFulfillment(input: {
       await notifyParentPaymentConfirmed({
         order: paidOrder,
         course,
+      });
+    }
+
+    void sendNewCourseRegistrationEmail(
+      buildAdminNotificationFromOrder(paidOrder, {
+        paymentMethod: input.paymentMethod,
+      }),
+    ).catch((emailError) => {
+      console.error("Resend new course registration email failed:", emailError);
+    });
+
+    if (
+      input.paymentMethod === "ecpay" ||
+      input.paymentMethod === "bank_transfer"
+    ) {
+      void sendPaymentSuccessEmail(
+        buildAdminNotificationFromOrder(paidOrder, {
+          paymentMethod: input.paymentMethod,
+        }),
+      ).catch((emailError) => {
+        console.error("Resend payment success email failed:", emailError);
       });
     }
   } catch (error) {
