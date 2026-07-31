@@ -21,6 +21,7 @@ export const navLinks = [
   { label: "藝術課程", href: "#courses" },
   { label: "關於", href: "#about" },
   { label: "最新消息", href: "#news" },
+  { label: "場地租借", href: "/space" },
   { label: "聯絡", href: "#contact" },
 ];
 

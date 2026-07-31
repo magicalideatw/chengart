@@ -19,6 +19,17 @@ export type AdminNotificationEmailInput = {
   time: string;
 };
 
+export type SpaceRentalInquiryEmailInput = {
+  name: string;
+  email: string;
+  phone: string;
+  rentalDate: string;
+  rentalTimeSlot: string;
+  purpose: string;
+  note?: string;
+  time: string;
+};
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -79,6 +90,42 @@ function renderNotificationHtml(
 </html>`;
 }
 
+function renderSpaceRentalInquiryHtml(
+  title: string,
+  data: SpaceRentalInquiryEmailInput,
+): string {
+  const rows: Array<[string, string]> = [
+    ["姓名", data.name],
+    ["Email", data.email],
+    ["電話", data.phone],
+    ["租借日期", data.rentalDate],
+    ["租借時段", data.rentalTimeSlot],
+    ["使用用途", data.purpose],
+    ["備註", data.note?.trim() || "—"],
+    ["送出時間", data.time],
+  ];
+
+  const tableRows = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb;width:120px">${escapeHtml(label)}</td><td style="padding:8px 12px;border:1px solid #e5e7eb">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<body style="font-family:sans-serif;color:#111827;line-height:1.6">
+  <h2 style="margin:0 0 16px">${escapeHtml(title)}</h2>
+  <table style="border-collapse:collapse;width:100%;max-width:560px">${tableRows}</table>
+  <p style="margin:32px 0 0;color:#6b7280;font-size:14px">
+    本信件由系統自動寄出<br />
+    晟心誠藝劇團<br />
+    <a href="${SITE_URL}" style="color:#2563eb">${SITE_URL}</a>
+  </p>
+</body>
+</html>`;
+}
+
 async function sendAdminNotification(
   subject: string,
   title: string,
@@ -97,6 +144,33 @@ async function sendAdminNotification(
     to: [ADMIN_EMAIL],
     subject,
     html: renderNotificationHtml(title, data),
+    replyTo: data.email,
+  });
+
+  if (error) {
+    console.error("[lib/email] Failed to send:", error);
+    return false;
+  }
+
+  return true;
+}
+
+async function sendSpaceRentalInquiryNotification(
+  data: SpaceRentalInquiryEmailInput,
+): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn("[lib/email] RESEND_API_KEY not configured, skipping email");
+    return false;
+  }
+
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to: [ADMIN_EMAIL],
+    subject: "【二階藝術空間】收到新的場地租借申請",
+    html: renderSpaceRentalInquiryHtml("收到新的場地租借申請", data),
     replyTo: data.email,
   });
 
@@ -156,4 +230,13 @@ export async function sendPaymentSuccessEmail(
     "付款成功通知",
     data,
   );
+}
+
+export async function sendNewSpaceRentalInquiryEmail(
+  data: Omit<SpaceRentalInquiryEmailInput, "time"> & { time?: string },
+): Promise<boolean> {
+  return sendSpaceRentalInquiryNotification({
+    ...data,
+    time: data.time ?? formatNotificationTime(new Date().toISOString()),
+  });
 }
