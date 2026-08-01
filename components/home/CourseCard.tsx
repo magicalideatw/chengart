@@ -25,11 +25,11 @@ export function CourseCard({ course, index }: CourseCardProps) {
       whileHover={{ y: -4 }}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-white transition-shadow hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]"
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-surface">
+      <div className="relative aspect-[4/3] overflow-hidden bg-surface">
         <CourseCoverImage
           src={course.coverImage}
           alt={course.title}
-          className="object-cover transition duration-700 group-hover:scale-[1.03]"
+          className="object-contain object-center transition duration-700 group-hover:scale-[1.03]"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
         />
       </div>
