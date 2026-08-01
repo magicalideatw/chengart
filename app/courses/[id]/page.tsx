@@ -54,7 +54,7 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
 
     return (
       <>
-        <Navbar variant="light" />
+        <Navbar variant="space" />
         <main className="bg-background pb-16">
           <PerformancePurchaseFlow course={course} ticketTypes={ticketTypes} />
         </main>
@@ -78,7 +78,7 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
 
   return (
     <>
-      <Navbar variant="light" />
+      <Navbar variant="space" />
       <main className="bg-background pb-16">
         <CourseRegistrationFlow
           course={course}

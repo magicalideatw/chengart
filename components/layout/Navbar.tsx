@@ -60,7 +60,7 @@ export function Navbar({ variant = "default" }: NavbarProps) {
                 isLight || scrolled ? "text-foreground/80" : "text-white/90"
               }`}
             >
-              回首頁
+              ← 回首頁
             </Link>
           ) : (
             <>

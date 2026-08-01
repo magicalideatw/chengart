@@ -29,7 +29,7 @@ export function CourseCard({ course, index }: CourseCardProps) {
         <CourseCoverImage
           src={course.coverImage}
           alt={course.title}
-          className="object-contain object-center transition duration-700 group-hover:scale-[1.03]"
+          className="object-cover object-[center_top] transition duration-700 group-hover:scale-[1.03]"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
         />
       </div>
