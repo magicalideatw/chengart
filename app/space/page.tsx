@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function SpaceRentalPage() {
   return (
     <>
-      <Navbar />
+      <Navbar variant="space" />
       <main>
         <SpaceHero />
         <SpaceAboutSection />
