@@ -15,6 +15,7 @@ type ActivityCtaProps = {
   onInternalAction?: () => void;
   variant?: "card" | "hero";
   className?: string;
+  staticPresentation?: boolean;
 };
 
 const cardLinkClass =
@@ -28,6 +29,7 @@ function renderCta(
   variant: "card" | "hero",
   onInternalAction: (() => void) | undefined,
   className?: string,
+  staticPresentation = false,
 ) {
   if (cta.kind === "disabled") {
     if (variant === "hero") {
@@ -48,6 +50,15 @@ function renderCta(
         aria-disabled="true"
       >
         {cta.label}
+      </span>
+    );
+  }
+
+  if (staticPresentation && variant === "card") {
+    return (
+      <span className={`${cardLinkClass} ${className ?? ""}`}>
+        {cta.label}
+        <span className="transition-transform group-hover:translate-x-0.5">→</span>
       </span>
     );
   }
@@ -109,6 +120,7 @@ export function ActivityCta({
   onInternalAction,
   variant = "card",
   className,
+  staticPresentation = false,
 }: ActivityCtaProps) {
   const cta = resolveActivityCta({
     isOpen,
@@ -128,5 +140,5 @@ export function ActivityCta({
     );
   }
 
-  return renderCta(cta, variant, onInternalAction, className);
+  return renderCta(cta, variant, onInternalAction, className, staticPresentation);
 }
