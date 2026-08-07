@@ -1,9 +1,33 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatFee } from "@/lib/admin/format";
+import type { PricingLineItem, PricingSnapshot, PromoCodeRecord } from "@/lib/pricing/types";
 import { validatePromoCode } from "@/lib/actions/pricing";
-import type { PricingSnapshot, PromoCodeRecord } from "@/lib/pricing/types";
+
+function formatSummaryAmount(amount: number): string {
+  const value = typeof amount === "number" && Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  return `NT$${value.toLocaleString()}`;
+}
+
+function formatSummaryDiscount(amount: number): string {
+  const value = Math.abs(amount);
+  return `-NT$${value.toLocaleString()}`;
+}
+
+function getDiscountDisplayLabel(line: PricingLineItem): string {
+  switch (line.key) {
+    case "early_bird":
+      return "早鳥優惠";
+    case "group":
+      return "團報優惠";
+    case "promo": {
+      const match = line.label.match(/折扣碼\s+(\S+)/);
+      return match ? `折扣碼 ${match[1]}` : "折扣碼優惠";
+    }
+    default:
+      return line.label;
+  }
+}
 
 type PromoCodeInputProps = {
   courseId: string;
@@ -129,6 +153,27 @@ type RegistrationPriceSummaryProps = {
   variant?: "sidebar" | "inline";
 };
 
+function SummaryRow({
+  label,
+  value,
+  valueClassName = "font-medium text-foreground",
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-sm">
+      <span className="text-muted">{label}</span>
+      <span className={valueClassName}>{value}</span>
+    </div>
+  );
+}
+
+function SummaryDivider() {
+  return <div className="border-t border-border" />;
+}
+
 export function RegistrationPriceSummary({
   pricing,
   showPromoInput = false,
@@ -143,15 +188,14 @@ export function RegistrationPriceSummary({
       ? "sticky top-24 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]"
       : "rounded-2xl border border-border bg-surface px-5 py-4";
 
+  const discountLines = pricing.lines.filter(
+    (line) => line.key !== "subtotal" && line.amount < 0,
+  );
+
   if (pricing.isFreeCourse) {
     return (
       <aside className={containerClass}>
-        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-gold">
-          Summary
-        </p>
-        <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
-          費用試算
-        </h3>
+        <h3 className="font-display text-lg font-semibold text-foreground">費用試算</h3>
         <p className="mt-5 text-sm text-muted">此為免費活動，無需付款。</p>
       </aside>
     );
@@ -159,62 +203,42 @@ export function RegistrationPriceSummary({
 
   return (
     <aside className={containerClass}>
-      <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-gold">
-        Summary
-      </p>
-      <h3 className="mt-2 font-display text-lg font-semibold text-foreground">
-        費用試算
-      </h3>
+      <h3 className="font-display text-lg font-semibold text-foreground">費用試算</h3>
 
-      <dl className="mt-5 space-y-3 text-sm">
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted">學生</dt>
-          <dd className="font-medium text-foreground">{pricing.studentCount} 位</dd>
-        </div>
+      <div className="mt-5 space-y-4">
+        <SummaryRow
+          label="報名人數"
+          value={`${pricing.studentCount} 位`}
+        />
         {pricing.sessionSlotCount !== pricing.studentCount ? (
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-muted">堂數</dt>
-            <dd className="font-medium text-foreground">{pricing.sessionSlotCount} 堂</dd>
-          </div>
+          <SummaryRow label="堂數" value={`${pricing.sessionSlotCount} 堂`} />
         ) : null}
-        <div className="flex items-center justify-between gap-4">
-          <dt className="text-muted">單價</dt>
-          <dd className="font-medium text-foreground">
-            {formatFee(pricing.basePricePerStudent)}
-          </dd>
-        </div>
 
-        {pricing.lines.map((line) => (
-          <div key={line.key} className="flex items-start justify-between gap-4">
-            <dt className="text-muted">{line.label}</dt>
-            <dd
-              className={`text-right font-medium ${
-                line.amount < 0 ? "text-emerald-700" : "text-foreground"
-              }`}
-            >
-              {line.amount < 0 ? `- ${formatFee(Math.abs(line.amount))}` : formatFee(line.amount)}
-            </dd>
-          </div>
+        <SummaryDivider />
+
+        <SummaryRow
+          label="單價"
+          value={formatSummaryAmount(pricing.basePricePerStudent)}
+        />
+
+        {discountLines.map((line) => (
+          <SummaryRow
+            key={line.key}
+            label={getDiscountDisplayLabel(line)}
+            value={formatSummaryDiscount(line.amount)}
+            valueClassName="font-medium text-emerald-700"
+          />
         ))}
 
-        {pricing.discountTotal > 0 ? (
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-muted">優惠總額</dt>
-            <dd className="font-medium text-emerald-700">
-              - {formatFee(pricing.discountTotal)}
-            </dd>
-          </div>
-        ) : null}
+        <SummaryDivider />
 
-        <div className="border-t border-border pt-3">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="font-medium text-foreground">最後付款金額</dt>
-            <dd className="font-display text-xl font-semibold text-gold">
-              {formatFee(pricing.total)}
-            </dd>
-          </div>
+        <div className="flex items-end justify-between gap-4 pt-1">
+          <span className="text-sm font-medium text-foreground">應付金額</span>
+          <span className="font-display text-2xl font-semibold leading-none text-gold">
+            {formatSummaryAmount(pricing.total)}
+          </span>
         </div>
-      </dl>
+      </div>
 
       {showPromoInput && courseId && onPromoApplied ? (
         <PromoCodeInput
