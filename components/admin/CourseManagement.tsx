@@ -13,6 +13,7 @@ import { BatchDeleteActivityModal } from "@/components/admin/BatchDeleteActivity
 import { formatDateTime, formatFee, formatSessionDate } from "@/lib/admin/format";
 import type { Course } from "@/lib/courses/types";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/courses/activity-type";
+import { getSessionUnitLabel } from "@/lib/sessions/labels";
 import { ActivityStatusBadge } from "@/components/admin/ActivityStatusBadge";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { CopyCourseModal } from "@/components/admin/CopyCourseModal";
@@ -24,7 +25,7 @@ type CourseManagementProps = {
   courses: Course[];
   enrollmentCounts: Record<string, number>;
   soldTicketCounts: Record<string, number>;
-  classCounts?: Record<string, number>;
+  sessionCounts?: Record<string, number>;
   canMutate: boolean;
 };
 
@@ -36,7 +37,7 @@ export function CourseManagement({
   courses,
   enrollmentCounts,
   soldTicketCounts,
-  classCounts = {},
+  sessionCounts = {},
   canMutate,
 }: CourseManagementProps) {
   const [showCreate, setShowCreate] = useState(false);
@@ -256,15 +257,16 @@ export function CourseManagement({
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 pr-6">
                           <div className="flex items-center gap-2">
-                            {course.activityType === "course" ? (
+                            {course.activityType === "course" ||
+                            course.activityType === "performance" ? (
                               <Link
-                                href={`/admin/courses/${course.id}/classes`}
+                                href={`/admin/courses/${course.id}/sessions`}
                                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-gold hover:text-gold"
                               >
                                 <Layers className="h-3.5 w-3.5" />
-                                班別管理
-                                {classCounts[course.id]
-                                  ? ` (${classCounts[course.id]})`
+                                {getSessionUnitLabel(course.activityType)}管理
+                                {sessionCounts[course.id]
+                                  ? ` (${sessionCounts[course.id]})`
                                   : ""}
                               </Link>
                             ) : null}

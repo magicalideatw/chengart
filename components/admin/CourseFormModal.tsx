@@ -9,6 +9,8 @@ import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
 import { PromoCodeSection } from "@/components/admin/PromoCodeSection";
 import { TicketTypeSection } from "@/components/admin/TicketTypeSection";
+import { CourseMediaSection } from "@/components/admin/CourseMediaSection";
+import { getCourseMediaForCourseAction } from "@/lib/actions/admin/course-media";
 import { getTicketTypesForCourseAction } from "@/lib/actions/admin/ticket-types";
 import {
   COURSE_CATEGORIES,
@@ -39,6 +41,7 @@ import {
 } from "@/lib/payment/types";
 import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { TicketTypeRecord } from "@/lib/ticket-types/types";
+import type { CourseMediaRecord } from "@/lib/media/types";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -152,6 +155,7 @@ export function CourseFormModal({
   const [isUploading, setIsUploading] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCodeRecord[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeRecord[]>([]);
+  const [mediaItems, setMediaItems] = useState<CourseMediaRecord[]>([]);
   const router = useRouter();
 
   const isFreeCourse = form.pricePerStudent <= 0;
@@ -178,6 +182,7 @@ export function CourseFormModal({
 
     void getPromoCodesForCourseAction(course.id).then(setPromoCodes);
     void getTicketTypesForCourseAction(course.id).then(setTicketTypes);
+    void getCourseMediaForCourseAction(course.id).then(setMediaItems);
   }, [course?.id]);
 
   const renderDiscountTypeRadios = (
@@ -730,6 +735,18 @@ export function CourseFormModal({
               若不顯示，前台僅顯示「招生中」或「已額滿」
             </p>
           </Section>
+
+          {course?.id ? (
+            <CourseMediaSection
+              courseId={course.id}
+              mediaItems={mediaItems}
+              canMutate
+              onChanged={() => {
+                void getCourseMediaForCourseAction(course.id).then(setMediaItems);
+                router.refresh();
+              }}
+            />
+          ) : null}
 
           {course?.id ? (
             <TicketTypeSection

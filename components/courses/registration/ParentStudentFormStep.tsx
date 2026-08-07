@@ -2,7 +2,6 @@
 
 import { useFormContext, useFieldArray } from "react-hook-form";
 import { Plus } from "lucide-react";
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import {
   createDefaultStudent,
   type ParentFormValues,
@@ -14,12 +13,10 @@ const inputClass =
 
 type ParentStudentFormStepProps = {
   usesSessions: boolean;
-  classes: ClassWithSessionsOption[];
 };
 
 export function ParentStudentFormStep({
-  usesSessions,
-  classes,
+  usesSessions: _usesSessions,
 }: ParentStudentFormStepProps) {
   const {
     register,
@@ -89,8 +86,6 @@ export function ParentStudentFormStep({
             <StudentRegistrationCard
               key={field.id}
               index={index}
-              usesSessions={usesSessions}
-              classes={classes}
               canRemove={fields.length > 1}
               onRemove={() => remove(index)}
             />

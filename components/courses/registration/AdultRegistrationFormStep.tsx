@@ -1,30 +1,22 @@
 "use client";
 
 import { useFormContext } from "react-hook-form";
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import type { AdultFormValues } from "@/lib/validation/registration-schema";
-import { StudentSessionPicker } from "./StudentSessionPicker";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
 
 type AdultRegistrationFormStepProps = {
   usesSessions: boolean;
-  classes: ClassWithSessionsOption[];
 };
 
 export function AdultRegistrationFormStep({
-  usesSessions,
-  classes,
+  usesSessions: _usesSessions,
 }: AdultRegistrationFormStepProps) {
   const {
     register,
-    watch,
-    setValue,
     formState: { errors },
   } = useFormContext<AdultFormValues>();
-
-  const selectedSessionIds = watch("sessionIds") ?? [];
 
   return (
     <div className="mt-8 space-y-8">
@@ -96,27 +88,6 @@ export function AdultRegistrationFormStep({
           </div>
         </div>
       </section>
-
-      {usesSessions ? (
-        <section className="rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-          <h3 className="font-display text-lg font-semibold text-foreground">
-            可報名時段
-          </h3>
-          <div className="mt-4">
-            <StudentSessionPicker
-              classes={classes}
-              selectedSessionIds={selectedSessionIds}
-              onChange={(next) =>
-                setValue("sessionIds", next, {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                  shouldTouch: true,
-                })
-              }
-            />
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

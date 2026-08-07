@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { JsonLdScript } from "@/components/seo/JsonLdScript";
 import { SpaceAboutSection } from "@/components/space/SpaceAboutSection";
 import { SpaceCalendarSection } from "@/components/space/SpaceCalendarSection";
 import { SpaceGallerySection } from "@/components/space/SpaceGallerySection";
@@ -10,16 +11,19 @@ import { SpaceLocationSection } from "@/components/space/SpaceLocationSection";
 import { SpaceNoticeSection } from "@/components/space/SpaceNoticeSection";
 import { SpacePricingSection } from "@/components/space/SpacePricingSection";
 import { SpaceUsageSection } from "@/components/space/SpaceUsageSection";
+import { buildPageMetadata, toAbsoluteUrl } from "@/lib/seo/metadata";
+import { pageSeo } from "@/lib/seo/pages";
+import { buildLocalBusinessJsonLd } from "@/lib/seo/json-ld";
 
-export const metadata: Metadata = {
-  title: "場地租借｜二階藝術空間｜晟心誠藝劇團",
-  description:
-    "提供中原地區場地租借，適合戲劇排練、舞蹈、魔術、藝術課程、工作坊及講座等多元用途。",
-};
+export const metadata: Metadata = buildPageMetadata({
+  ...pageSeo.space,
+  image: toAbsoluteUrl("/images/space/hero.jpg"),
+});
 
 export default function SpaceRentalPage() {
   return (
     <>
+      <JsonLdScript data={buildLocalBusinessJsonLd()} />
       <Navbar variant="space" />
       <main>
         <SpaceHero />

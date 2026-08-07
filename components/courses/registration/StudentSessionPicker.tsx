@@ -1,6 +1,6 @@
 "use client";
 
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
+import type { ClassWithSessionsOption } from "@/lib/registration/plan-utils";
 import { isSessionSelectable } from "@/lib/registration/session-utils";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { SessionStatus } from "@/lib/sessions/types";

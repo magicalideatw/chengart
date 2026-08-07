@@ -8,9 +8,11 @@ import {
 } from "@/lib/payment/types";
 import {
   formatPerformanceTicketSummary,
+  getPerformanceSessionSnapshot,
   getPerformanceTicketLines,
   isPerformanceOrderFormData,
 } from "@/lib/orders/order-form-data";
+import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import {
   normalizeStudentsFromFormData,
   usesMultiSessionRegistration,
@@ -45,12 +47,20 @@ export function buildOrderEmailData(input: {
   if (isPerformanceOrderFormData(formData)) {
     const ticketLines = getPerformanceTicketLines(formData);
     const ticketSummary = formatPerformanceTicketSummary(formData);
+    const sessionSnapshot = getPerformanceSessionSnapshot(formData);
     const transferDeadlineDays = bankTransferSettings
       ? getCourseTransferDeadlineDays(
           course,
           bankTransferSettings.transferDeadlineDays,
         )
       : null;
+
+    const sessionDate = sessionSnapshot
+      ? formatSessionCheckboxLabel(sessionSnapshot.date)
+      : formatSessionDate(course.sessionDate);
+    const sessionTime = sessionSnapshot
+      ? `${sessionSnapshot.startTime}–${sessionSnapshot.endTime}`
+      : course.sessionTime || "—";
 
     return {
       courseTitle: order.course_title,
@@ -61,11 +71,11 @@ export function buildOrderEmailData(input: {
       students: ticketLines.map((line) => ({
         name: line.name,
         age: `×${line.quantity}`,
-        sessionDates: formatSessionDate(course.sessionDate),
-        sessionTimes: course.sessionTime || "—",
+        sessionDates: sessionDate,
+        sessionTimes: sessionTime,
       })),
-      sessionDate: formatSessionDate(course.sessionDate),
-      sessionTime: course.sessionTime || "—",
+      sessionDate,
+      sessionTime,
       paymentMethod: order.payment_method,
       paymentMethodLabel: getPaymentMethodLabel(order.payment_method),
       paymentStatus: order.payment_status,

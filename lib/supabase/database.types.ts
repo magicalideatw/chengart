@@ -122,6 +122,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      course_media: {
+        Row: {
+          id: string;
+          course_id: string;
+          media_type: string;
+          title: string;
+          source_url: string;
+          sort_order: number;
+          is_visible: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          media_type?: string;
+          title?: string;
+          source_url: string;
+          sort_order?: number;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          media_type?: string;
+          title?: string;
+          source_url?: string;
+          sort_order?: number;
+          is_visible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "course_media_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ticket_types: {
         Row: {
           id: string;
@@ -308,12 +352,18 @@ export type Database = {
       sessions: {
         Row: {
           id: string;
-          class_id: string;
+          class_id: string | null;
+          course_id: string | null;
+          name: string;
           date: string;
           start_time: string;
           end_time: string;
           capacity: number;
           remaining_capacity: number;
+          price: number;
+          location: string;
+          is_open: boolean;
+          sort_order: number;
           status: string;
           notes: string;
           created_at: string;
@@ -321,12 +371,18 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          class_id: string;
+          class_id?: string | null;
+          course_id?: string | null;
+          name?: string;
           date: string;
           start_time: string;
           end_time: string;
           capacity?: number;
           remaining_capacity?: number;
+          price?: number;
+          location?: string;
+          is_open?: boolean;
+          sort_order?: number;
           status?: string;
           notes?: string;
           created_at?: string;
@@ -334,12 +390,18 @@ export type Database = {
         };
         Update: {
           id?: string;
-          class_id?: string;
+          class_id?: string | null;
+          course_id?: string | null;
+          name?: string;
           date?: string;
           start_time?: string;
           end_time?: string;
           capacity?: number;
           remaining_capacity?: number;
+          price?: number;
+          location?: string;
+          is_open?: boolean;
+          sort_order?: number;
           status?: string;
           notes?: string;
           created_at?: string;
@@ -351,6 +413,13 @@ export type Database = {
             columns: ["class_id"];
             isOneToOne: false;
             referencedRelation: "classes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sessions_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
             referencedColumns: ["id"];
           },
         ];

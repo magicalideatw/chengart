@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/lib/auth/session";
 import { getClassById } from "@/lib/classes/queries";
 import { generateWeekdayDates } from "@/lib/sessions/generate-dates";
-import { mapSessionToDb } from "@/lib/sessions/mappers";
+import { mapSessionToDb, buildEmptySessionForm } from "@/lib/sessions/mappers";
 import { getEnrollmentCountForSession } from "@/lib/sessions/enrollment";
 import { getSessionDatesByClassId } from "@/lib/sessions/queries";
 import type {
@@ -46,6 +46,7 @@ function revalidateSessionPaths(classId: string, courseId?: string) {
   revalidatePath(`/admin/classes/${classId}/sessions`);
   if (courseId) {
     revalidatePath(`/admin/courses/${courseId}/classes`);
+    revalidatePath(`/admin/courses/${courseId}/sessions`);
     revalidatePath("/admin/courses");
   }
 }
@@ -59,6 +60,22 @@ async function getClassContext(classId: string): Promise<
     return { error: { success: false, error: "找不到此班別" } };
   }
   return { courseClass };
+}
+
+function withClassDefaults(
+  courseClass: NonNullable<Awaited<ReturnType<typeof getClassById>>>,
+  input: SessionFormInput,
+): SessionFormInput {
+  return {
+    ...input,
+    name: input.name.trim() || courseClass.name,
+    startTime: input.startTime.trim() || courseClass.startTime,
+    endTime: input.endTime.trim() || courseClass.endTime,
+    capacity: input.capacity || courseClass.capacity,
+    price: input.price > 0 ? input.price : (courseClass.fee ?? 0),
+    sortOrder: input.sortOrder || courseClass.sortOrder,
+    isOpen: input.isOpen && courseClass.isOpen,
+  };
 }
 
 export async function createSession(
@@ -78,12 +95,15 @@ export async function createSession(
   const context = await getClassContext(classId);
   if ("error" in context) return context.error;
 
+  const normalized = withClassDefaults(context.courseClass, parsed.data);
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
   const { error } = await supabase
     .from("sessions")
-    .insert(mapSessionToDb(classId, parsed.data, 0));
+    .insert(
+      mapSessionToDb(context.courseClass.courseId, normalized, 0, classId),
+    );
 
   if (error) {
     console.error("Create session failed:", error.message);
@@ -119,6 +139,7 @@ export async function updateSession(
   const context = await getClassContext(classId);
   if ("error" in context) return context.error;
 
+  const normalized = withClassDefaults(context.courseClass, parsed.data);
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
@@ -126,7 +147,14 @@ export async function updateSession(
 
   const { error } = await supabase
     .from("sessions")
-    .update(mapSessionToDb(classId, parsed.data, enrolledCount))
+    .update(
+      mapSessionToDb(
+        context.courseClass.courseId,
+        normalized,
+        enrolledCount,
+        classId,
+      ),
+    )
     .eq("id", sessionId)
     .eq("class_id", classId);
 
@@ -216,16 +244,25 @@ export async function bulkGenerateSessions(
   const supabase = await getMutationClient();
   if (!supabase) return mutationUnavailable();
 
-  const rows = newDates.map((date) => ({
-    class_id: classId,
-    date,
-    start_time: context.courseClass.startTime,
-    end_time: context.courseClass.endTime,
+  const baseForm = buildEmptySessionForm({
+    name: context.courseClass.name,
+    startTime: context.courseClass.startTime,
+    endTime: context.courseClass.endTime,
     capacity: context.courseClass.capacity,
-    remaining_capacity: context.courseClass.capacity,
-    status: "open" as const,
-    notes: "",
-  }));
+    remainingCapacity: context.courseClass.capacity,
+    price: context.courseClass.fee ?? 0,
+    sortOrder: context.courseClass.sortOrder,
+    isOpen: context.courseClass.isOpen,
+  });
+
+  const rows = newDates.map((date) =>
+    mapSessionToDb(
+      context.courseClass.courseId,
+      { ...baseForm, date },
+      0,
+      classId,
+    ),
+  );
 
   const { error } = await supabase.from("sessions").insert(rows);
 

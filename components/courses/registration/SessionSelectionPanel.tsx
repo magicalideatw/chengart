@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { formatFee } from "@/lib/admin/format";
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
+import type { ClassWithSessionsOption } from "@/lib/registration/plan-utils";
 import { isSessionSelectable } from "@/lib/registration/session-utils";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
 import type { SessionStatus } from "@/lib/sessions/types";
@@ -51,9 +51,6 @@ export function SessionSelectionPanel({
             <h2 className="font-display text-xl font-semibold text-foreground">
               {item.class.name}
             </h2>
-            {item.class.teacher ? (
-              <p className="mt-1 text-sm text-muted">老師：{item.class.teacher}</p>
-            ) : null}
 
             <div className="mt-5 space-y-3">
               {item.sessions.map((session) => {

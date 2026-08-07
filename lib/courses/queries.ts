@@ -83,6 +83,15 @@ export async function getPublicCourses(): Promise<CourseListing[]> {
   return getPublicCoursesByActivityType("course");
 }
 
+export async function getPublicCourseIds(): Promise<string[]> {
+  const [courses, performances] = await Promise.all([
+    getPublicCoursesByActivityType("course"),
+    getPublicCoursesByActivityType("performance"),
+  ]);
+
+  return [...courses, ...performances].map((course) => course.id);
+}
+
 export async function getAllCourses(): Promise<Course[]> {
   if (!isSupabaseConfigured()) return [];
 

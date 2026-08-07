@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { EventPageContent } from "@/components/events/EventPageContent";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { JsonLdScript } from "@/components/seo/JsonLdScript";
 import { getEventBySlug } from "@/lib/events/queries";
+import { buildMarketingEventJsonLd } from "@/lib/seo/json-ld";
+import { buildPageMetadata, toAbsoluteUrl } from "@/lib/seo/metadata";
 import { siteConfig } from "@/lib/data/site";
 
 export const dynamic = "force-dynamic";
@@ -22,17 +25,18 @@ export async function generateMetadata({
     return { title: "活動不存在" };
   }
 
-  return {
-    title: `${event.title} | ${siteConfig.name}`,
-    description: event.subtitle || event.intro,
-    openGraph: {
-      title: event.title,
-      description: event.subtitle || event.intro,
-      images: event.coverImage
-        ? [{ url: event.coverImage, width: 1200, height: 630 }]
-        : undefined,
-    },
-  };
+  const description =
+    event.subtitle ||
+    event.intro ||
+    `查看「${event.title}」最新消息、活動內容與報名資訊。`;
+
+  return buildPageMetadata({
+    title: event.title,
+    description,
+    path: `/events/${event.slug}`,
+    image: event.coverImage ? toAbsoluteUrl(event.coverImage) : undefined,
+    imageAlt: `${event.title} 活動封面`,
+  });
 }
 
 export default async function EventPage({ params }: PageProps) {
@@ -43,8 +47,16 @@ export default async function EventPage({ params }: PageProps) {
     notFound();
   }
 
+  const pageUrl = new URL(`/events/${event.slug}`, siteConfig.url).toString();
+  const imageUrl = event.coverImage
+    ? toAbsoluteUrl(event.coverImage)
+    : undefined;
+
   return (
     <>
+      <JsonLdScript
+        data={buildMarketingEventJsonLd(event, pageUrl, imageUrl)}
+      />
       <Navbar variant="light" />
       <main className="bg-background pb-16">
         <EventPageContent event={event} />

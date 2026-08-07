@@ -1,4 +1,5 @@
 import type { OrderStudentInput } from "@/lib/registration/types";
+import { getSessionUnitPrice } from "@/lib/sessions/course-options";
 
 export type SessionPriceMap = Map<string, number>;
 
@@ -7,10 +8,8 @@ export function buildSessionPriceMap(
   plan: import("@/lib/registration/queries").CourseRegistrationPlan,
 ): SessionPriceMap {
   const map = new Map<string, number>();
-  for (const item of plan.classes) {
-    for (const session of item.sessions) {
-      map.set(session.id, item.unitPrice);
-    }
+  for (const session of plan.sessions) {
+    map.set(session.id, getSessionUnitPrice(session, plan.defaultUnitPrice));
   }
   return map;
 }

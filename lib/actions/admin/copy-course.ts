@@ -13,6 +13,7 @@ import { mapSessionToDb } from "@/lib/sessions/mappers";
 import { sessionToFormInput } from "@/lib/sessions/mappers";
 import { getSessionsByClassId } from "@/lib/sessions/queries";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import { copyCourseMedia } from "@/lib/media/queries";
 import { adminCourseSchema } from "@/lib/validation/admin-course-schema";
 import { copyCourseSchema } from "@/lib/validation/copy-course-schema";
 
@@ -199,6 +200,13 @@ export async function copyCourse(input: unknown): Promise<CopyCourseResult> {
 
   const newCourseId = String(inserted.id);
 
+  if (copyIntro) {
+    const mediaResult = await copyCourseMedia(sourceCourseId, newCourseId);
+    if (!mediaResult.success) {
+      console.error("Copy course media failed:", mediaResult.error);
+    }
+  }
+
   if (copySessions) {
     const classes = await getClassesByCourseId(sourceCourseId);
 
@@ -225,7 +233,9 @@ export async function copyCourse(input: unknown): Promise<CopyCourseResult> {
 
         const { error: sessionError } = await supabase
           .from("sessions")
-          .insert(mapSessionToDb(String(newClass.id), sessionInput, 0));
+          .insert(
+            mapSessionToDb(newCourseId, sessionInput, 0, String(newClass.id)),
+          );
 
         if (sessionError) {
           console.error("Copy session failed:", sessionError.message);

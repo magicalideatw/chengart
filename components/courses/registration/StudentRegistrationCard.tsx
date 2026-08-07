@@ -2,37 +2,27 @@
 
 import { useFormContext } from "react-hook-form";
 import { Trash2 } from "lucide-react";
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
 import type { ParentFormValues } from "@/lib/validation/registration-schema";
-import { StudentSessionPicker } from "./StudentSessionPicker";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
 
 type StudentRegistrationCardProps = {
   index: number;
-  usesSessions: boolean;
-  classes: ClassWithSessionsOption[];
   canRemove: boolean;
   onRemove: () => void;
 };
 
 export function StudentRegistrationCard({
   index,
-  usesSessions,
-  classes,
   canRemove,
   onRemove,
 }: StudentRegistrationCardProps) {
   const {
     register,
-    watch,
-    getValues,
-    setValue,
     formState: { errors },
   } = useFormContext<ParentFormValues>();
 
-  const selectedSessionIds = watch(`students.${index}.sessionIds`) ?? [];
   const studentErrors = errors.students?.[index];
 
   return (
@@ -120,24 +110,6 @@ export function StudentRegistrationCard({
           />
         </div>
       </div>
-
-      {usesSessions ? (
-        <div className="mt-6 border-t border-border pt-6">
-          <p className="mb-4 text-sm font-medium text-foreground">可報名時段</p>
-          <StudentSessionPicker
-            classes={classes}
-            selectedSessionIds={selectedSessionIds}
-            onChange={(next) => {
-              const current = getValues(`students.${index}`);
-              setValue(
-                `students.${index}`,
-                { ...current, sessionIds: next },
-                { shouldValidate: true, shouldDirty: true, shouldTouch: true },
-              );
-            }}
-          />
-        </div>
-      ) : null}
     </article>
   );
 }

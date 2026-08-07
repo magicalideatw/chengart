@@ -14,6 +14,15 @@ import {
   type PerformanceOrderFormData,
   type PerformancePricingSnapshot,
 } from "@/lib/orders/order-form-data";
+import {
+  buildPerformanceSessionOrderSnapshot,
+  calculateSessionPurchaseSummary,
+  resolvePerformancePurchaseMode,
+  validateSessionQuantity,
+  SESSION_QUANTITY_ERROR,
+} from "@/lib/performance/purchase";
+import { validatePerformanceSessionSelection } from "@/lib/registration/queries";
+import { getOpenSessionsByCourseId } from "@/lib/sessions/queries";
 import { getActiveTicketTypesByCourseId } from "@/lib/ticket-types/queries";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import type { PaymentMethod } from "@/lib/payment/types";
@@ -31,7 +40,9 @@ export type CreatePerformanceOrderInput = {
   phone: string;
   email: string;
   paymentMethod: PaymentMethod;
-  quantities: Record<string, number>;
+  quantities?: Record<string, number>;
+  sessionId?: string;
+  sessionQuantity?: number;
 };
 
 export type CreatePerformanceOrderResult = FinalizeOrderResult;
@@ -126,18 +137,136 @@ export async function createPerformanceOrder(
     return { success: false, error: "此活動購票已截止" };
   }
 
-  const ticketTypes = await getActiveTicketTypesByCourseId(course.id);
-  if (ticketTypes.length === 0) {
-    return { success: false, error: "票種尚未開放，請稍後再試" };
+  const [ticketTypes, openSessions] = await Promise.all([
+    getActiveTicketTypesByCourseId(course.id),
+    getOpenSessionsByCourseId(course.id),
+  ]);
+
+  const purchaseMode = resolvePerformancePurchaseMode({
+    ticketTypes,
+    sessions: openSessions,
+  });
+
+  if (!purchaseMode) {
+    return { success: false, error: "場次或票種尚未開放，請稍後再試" };
   }
 
-  const ticketResult = buildValidatedTicketLines(ticketTypes, input.quantities);
-  if (!ticketResult.success) {
-    return { success: false, error: ticketResult.error };
-  }
+  let amount = 0;
+  let pricingSnapshot: PerformancePricingSnapshot;
+  let formData: PerformanceOrderFormData;
 
-  const { summary } = ticketResult;
-  const amount = summary.totalAmount;
+  if (purchaseMode === "session") {
+    if (!input.sessionId) {
+      return { success: false, error: "請選擇場次" };
+    }
+
+    const quantity = Number(input.sessionQuantity ?? 0);
+    if (!validateSessionQuantity(quantity)) {
+      return { success: false, error: SESSION_QUANTITY_ERROR };
+    }
+
+    const sessionResult = await validatePerformanceSessionSelection(
+      course.id,
+      input.sessionId,
+    );
+    if (!sessionResult.success) {
+      return { success: false, error: sessionResult.error };
+    }
+
+    const session = sessionResult.data.session;
+    if (quantity > session.remainingCapacity) {
+      return { success: false, error: "所選場次剩餘名額不足，請調整數量" };
+    }
+
+    const sessionSnapshot = buildPerformanceSessionOrderSnapshot(session, quantity);
+    const summary = calculateSessionPurchaseSummary(session, quantity);
+    amount = sessionSnapshot.amount;
+
+    pricingSnapshot = {
+      orderType: PERFORMANCE_ORDER_TYPE,
+      purchaseMode: "session",
+      totalTickets: summary.totalTickets,
+      totalAmount: summary.totalAmount,
+      lines: summary.lines,
+    };
+
+    formData = {
+      orderType: PERFORMANCE_ORDER_TYPE,
+      purchaseMode: "session",
+      name: parsedContact.data.name,
+      phone: parsedContact.data.phone,
+      email: parsedContact.data.email,
+      paymentMethod: input.paymentMethod,
+      sessionId: sessionSnapshot.sessionId,
+      unitPrice: sessionSnapshot.unitPrice,
+      quantity: sessionSnapshot.quantity,
+      sessionSnapshot,
+      ticketLines: [],
+      pricingSnapshot,
+    };
+  } else {
+    const openSessionsForTickets = openSessions;
+    const requiresSession = openSessionsForTickets.length > 0;
+
+    if (requiresSession) {
+      if (!input.sessionId) {
+        return { success: false, error: "請選擇場次" };
+      }
+
+      const sessionResult = await validatePerformanceSessionSelection(
+        course.id,
+        input.sessionId,
+      );
+      if (!sessionResult.success) {
+        return { success: false, error: sessionResult.error };
+      }
+    }
+
+    const ticketResult = buildValidatedTicketLines(
+      ticketTypes,
+      input.quantities ?? {},
+    );
+    if (!ticketResult.success) {
+      return { success: false, error: ticketResult.error };
+    }
+
+    const { summary } = ticketResult;
+
+    if (requiresSession && input.sessionId) {
+      const sessionResult = await validatePerformanceSessionSelection(
+        course.id,
+        input.sessionId,
+      );
+      if (
+        sessionResult.success &&
+        summary.totalTickets > sessionResult.data.session.remainingCapacity
+      ) {
+        return { success: false, error: "所選場次剩餘名額不足，請調整票數" };
+      }
+    }
+
+    amount = summary.totalAmount;
+
+    pricingSnapshot = {
+      orderType: PERFORMANCE_ORDER_TYPE,
+      purchaseMode: "ticket",
+      totalTickets: summary.totalTickets,
+      totalAmount: summary.totalAmount,
+      lines: summary.lines,
+    };
+
+    formData = {
+      orderType: PERFORMANCE_ORDER_TYPE,
+      purchaseMode: "ticket",
+      name: parsedContact.data.name,
+      phone: parsedContact.data.phone,
+      email: parsedContact.data.email,
+      paymentMethod: input.paymentMethod,
+      sessionId: input.sessionId,
+      ticketLines: summary.lines,
+      pricingSnapshot,
+    };
+  }
 
   const paymentError = assertOrderPaymentMethod({
     course,
@@ -147,26 +276,6 @@ export async function createPerformanceOrder(
   if (paymentError) {
     return { success: false, error: paymentError };
   }
-
-  const pricingSnapshot: PerformancePricingSnapshot = {
-    orderType: PERFORMANCE_ORDER_TYPE,
-    totalTickets: summary.totalTickets,
-    totalAmount: summary.totalAmount,
-    lines: summary.lines,
-  };
-
-  const formData: PerformanceOrderFormData = {
-    orderType: PERFORMANCE_ORDER_TYPE,
-    name: parsedContact.data.name,
-    phone: parsedContact.data.phone,
-    email: parsedContact.data.email,
-    paymentMethod: input.paymentMethod,
-    ticketLines: summary.lines,
-    pricingSnapshot,
-  };
-
-  console.log("[createPerformanceOrder] PerformanceOrderFormData:", formData);
-  console.log("[createPerformanceOrder] formData.orderType:", formData.orderType);
 
   const { merchantTradeNo, paymentStatus } = buildMerchantTradeNoAndPaymentStatus(
     input.paymentMethod,

@@ -25,6 +25,7 @@ import {
 } from "@/lib/pricing/engine";
 import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { CourseRegistrationPlan } from "@/lib/registration/queries";
+import { planToLegacyClassOptions } from "@/lib/registration/plan-utils";
 import { countRegistrationSessionSlots } from "@/lib/registration/pricing";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import {
@@ -39,6 +40,8 @@ import {
 } from "@/lib/validation/registration-schema";
 import { CourseRegistrationHero } from "./CourseRegistrationHero";
 import { CourseDetailsSection } from "./CourseDetailsSection";
+import { CourseMediaDisplaySection } from "@/components/courses/CourseMediaDisplaySection";
+import type { CourseMediaRecord } from "@/lib/media/types";
 import { ActivityRulesSection } from "./ActivityRulesSection";
 import { StepIndicator, StepHeader } from "./StepIndicator";
 import { ParentStudentFormStep } from "./ParentStudentFormStep";
@@ -47,11 +50,13 @@ import { RegistrationTypePicker } from "./RegistrationTypePicker";
 import { ConfirmStep } from "./ConfirmStep";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { RegistrationPriceSummary } from "./RegistrationPriceSummary";
+import { CourseSessionRadioPicker } from "./CourseSessionRadioPicker";
 
 type CourseRegistrationFlowProps = {
   course: CourseWithEnrollment;
   plan: CourseRegistrationPlan;
   hasPromoCodes?: boolean;
+  mediaItems?: CourseMediaRecord[];
 };
 
 const steps = ["填寫報名資料", "確認並付款"];
@@ -60,6 +65,7 @@ export function CourseRegistrationFlow({
   course,
   plan,
   hasPromoCodes = false,
+  mediaItems = [],
 }: CourseRegistrationFlowProps) {
   const formRef = useRef<HTMLDivElement>(null);
   const isSubmittingOrderRef = useRef(false);
@@ -72,9 +78,16 @@ export function CourseRegistrationFlow({
   const [appliedPromoRecord, setAppliedPromoRecord] = useState<PromoCodeRecord | null>(
     null,
   );
+  const [selectedCourseSessionId, setSelectedCourseSessionId] = useState<string | null>(
+    null,
+  );
   const router = useRouter();
 
   const usesSessions = plan.usesSessions;
+  const legacyClassOptions = useMemo(
+    () => planToLegacyClassOptions(plan),
+    [plan],
+  );
   const pricingRules = useMemo(() => courseToPricingRules(course), [course]);
   const isFreeCourse = pricingRules.pricePerStudent <= 0;
 
@@ -206,12 +219,30 @@ export function CourseRegistrationFlow({
     if (!valid) return;
 
     if (usesSessions) {
+      if (!selectedCourseSessionId) {
+        setErrorMessage("請選擇班別");
+        return;
+      }
+
+      if (activeType === "adult") {
+        adultMethods.setValue("sessionIds", [selectedCourseSessionId], {
+          shouldValidate: true,
+        });
+      } else {
+        const students = parentMethods.getValues("students");
+        students.forEach((_, index) => {
+          parentMethods.setValue(`students.${index}.sessionIds`, [selectedCourseSessionId], {
+            shouldValidate: true,
+          });
+        });
+      }
+
       const orderData = buildOrderFormData();
       const missingSessions = orderData?.students.some(
         (student) => (student.sessionIds?.length ?? 0) === 0,
       );
       if (missingSessions) {
-        setErrorMessage("請至少選擇一堂上課日期");
+        setErrorMessage("請選擇班別");
         return;
       }
     }
@@ -300,6 +331,10 @@ export function CourseRegistrationFlow({
       />
 
       <CourseDetailsSection courseDetails={course.courseDetails} />
+      <CourseMediaDisplaySection
+        sectionTitle="課程介紹影片"
+        mediaItems={mediaItems}
+      />
       <ActivityRulesSection activityRules={course.activityRules} />
 
       {canRegister && (
@@ -332,19 +367,28 @@ export function CourseRegistrationFlow({
                       </div>
                     ) : null}
 
+                    {usesSessions ? (
+                      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+                        <h3 className="font-display text-lg font-semibold text-foreground">
+                          選擇班別
+                        </h3>
+                        <div className="mt-4">
+                          <CourseSessionRadioPicker
+                            sessions={plan.courseSessionOptions}
+                            selectedSessionId={selectedCourseSessionId}
+                            onChange={setSelectedCourseSessionId}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
                     {needsTypeSelection ? null : activeType === "adult" ? (
                       <FormProvider {...adultMethods}>
-                        <AdultRegistrationFormStep
-                          usesSessions={usesSessions}
-                          classes={plan.classes}
-                        />
+                        <AdultRegistrationFormStep usesSessions={usesSessions} />
                       </FormProvider>
                     ) : activeType === "parent" ? (
                       <FormProvider {...parentMethods}>
-                        <ParentStudentFormStep
-                          usesSessions={usesSessions}
-                          classes={plan.classes}
-                        />
+                        <ParentStudentFormStep usesSessions={usesSessions} />
                       </FormProvider>
                     ) : null}
 
@@ -383,7 +427,8 @@ export function CourseRegistrationFlow({
                         feeLabel={formatFee(totalAmount)}
                         totalAmount={totalAmount}
                         usesSessions={usesSessions}
-                        classes={plan.classes}
+                        classes={legacyClassOptions}
+                        sessions={plan.sessions}
                         formData={confirmData}
                         variant={
                           confirmData.registrationType === "parent" ? "parent" : "adult"

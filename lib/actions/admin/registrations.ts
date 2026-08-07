@@ -11,6 +11,7 @@ import {
 } from "@/lib/registration/pricing";
 import {
   getCourseRegistrationPlan,
+  planToLegacyClassOptions,
   validateSessionSelection,
 } from "@/lib/registration/queries";
 import type { RegistrationOrderFormData } from "@/lib/registration/types";
@@ -446,10 +447,10 @@ export async function getAdminCourseSessionOptions(courseId: string) {
 
   return {
     usesSessions: true as const,
-    classes: plan.classes.map((item) => ({
+    classes: planToLegacyClassOptions(plan).map((item) => ({
       classId: item.class.id,
       className: item.class.name,
-      weekday: item.class.weekday,
+      weekday: "",
       unitPrice: item.unitPrice,
       sessions: item.sessions.map((session) => ({
         id: session.id,

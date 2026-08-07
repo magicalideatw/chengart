@@ -31,6 +31,63 @@ export async function usesSessionsTable(): Promise<boolean> {
   return true;
 }
 
+export async function getSessionsByCourseId(
+  courseId: string,
+): Promise<ClassSession[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("sort_order", { ascending: true })
+    .order("date", { ascending: true });
+
+  if (error) {
+    if (error.code === "PGRST205") return [];
+    console.error("Failed to fetch course sessions:", error.message);
+    return [];
+  }
+
+  return mapSessionRowsWithEnrollment(data ?? []);
+}
+
+export async function getOpenSessionsByCourseId(
+  courseId: string,
+  options?: { fromDate?: string },
+): Promise<ClassSession[]> {
+  const sessions = await getSessionsByCourseId(courseId);
+  const fromDate = options?.fromDate;
+
+  return sessions.filter((session) => {
+    if (!session.isOpen) return false;
+    if (fromDate && session.date < fromDate) return false;
+    return true;
+  });
+}
+
+export async function getSessionById(sessionId: string): Promise<ClassSession | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error && error.code !== "PGRST205") {
+      console.error("Failed to fetch session:", error.message);
+    }
+    return null;
+  }
+
+  const [session] = await mapSessionRowsWithEnrollment([data]);
+  return session ?? null;
+}
+
 export async function getSessionsByClassId(
   classId: string,
 ): Promise<ClassSession[]> {
@@ -78,6 +135,30 @@ export async function getSessionCountsByClassIds(
 
   return (data ?? []).reduce<Record<string, number>>((counts, row) => {
     const id = String(row.class_id);
+    counts[id] = (counts[id] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+export async function getSessionCountsByCourseIds(
+  courseIds: string[],
+): Promise<Record<string, number>> {
+  if (!isSupabaseConfigured() || courseIds.length === 0) return {};
+
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("course_id")
+    .in("course_id", courseIds);
+
+  if (error) {
+    if (error.code === "PGRST205") return {};
+    console.error("Failed to fetch course session counts:", error.message);
+    return {};
+  }
+
+  return (data ?? []).reduce<Record<string, number>>((counts, row) => {
+    const id = String(row.course_id);
     counts[id] = (counts[id] ?? 0) + 1;
     return counts;
   }, {});

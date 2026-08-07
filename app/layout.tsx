@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Noto_Sans_TC, Outfit } from "next/font/google";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { siteConfig } from "@/lib/data/site";
+import {
+  getDefaultOgImageUrl,
+  SEO_DEFAULT_OG_IMAGE,
+} from "@/lib/seo/constants";
 import "./globals.css";
 
 const notoSansTC = Noto_Sans_TC({
@@ -44,10 +48,10 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     images: [
       {
-        url: "https://images.unsplash.com/photo-1547036967-23d11aeea016?w=1200&h=630&fit=crop&q=80",
-        width: 1200,
-        height: 630,
-        alt: siteConfig.name,
+        url: getDefaultOgImageUrl(),
+        width: SEO_DEFAULT_OG_IMAGE.width,
+        height: SEO_DEFAULT_OG_IMAGE.height,
+        alt: SEO_DEFAULT_OG_IMAGE.alt,
       },
     ],
   },
@@ -55,9 +59,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${siteConfig.name} | ${siteConfig.nameEn}`,
     description: siteConfig.description,
-    images: [
-      "https://images.unsplash.com/photo-1547036967-23d11aeea016?w=1200&h=630&fit=crop&q=80",
-    ],
+    images: [getDefaultOgImageUrl()],
   },
   robots: {
     index: true,

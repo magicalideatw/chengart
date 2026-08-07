@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
-import type { ClassWithSessionsOption } from "@/lib/registration/queries";
+import type { ClassWithSessionsOption } from "@/lib/registration/plan-utils";
+import type { ClassSession } from "@/lib/sessions/types";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
@@ -18,6 +19,7 @@ type ConfirmStepProps = {
   feeLabel: string;
   usesSessions: boolean;
   classes: ClassWithSessionsOption[];
+  sessions?: ClassSession[];
   formData: RegistrationOrderFormValues;
   variant: "adult" | "parent";
   totalAmount: number;
@@ -26,8 +28,18 @@ type ConfirmStepProps = {
 
 function findSessionLabel(
   classes: ClassWithSessionsOption[],
+  sessions: ClassSession[] | undefined,
   sessionId: string,
 ): string {
+  if (sessions?.length) {
+    const session = sessions.find((entry) => entry.id === sessionId);
+    if (session) {
+      const name = session.name.trim();
+      const datePart = `${formatSessionCheckboxLabel(session.date)} ${session.startTime}~${session.endTime}`;
+      return name ? `${name} · ${datePart}` : datePart;
+    }
+  }
+
   for (const item of classes) {
     const session = item.sessions.find((entry) => entry.id === sessionId);
     if (session) {
@@ -44,6 +56,7 @@ export function ConfirmStep({
   feeLabel,
   usesSessions,
   classes,
+  sessions,
   formData,
   variant,
   totalAmount,
@@ -115,7 +128,7 @@ export function ConfirmStep({
             {usesSessions ? (
               <ul className="mt-3 space-y-1 text-sm text-foreground">
                 {(formData.students[0]?.sessionIds ?? []).map((sessionId) => (
-                  <li key={sessionId}>✓ {findSessionLabel(classes, sessionId)}</li>
+                  <li key={sessionId}>✓ {findSessionLabel(classes, sessions, sessionId)}</li>
                 ))}
               </ul>
             ) : null}
@@ -145,7 +158,7 @@ export function ConfirmStep({
                   <ul className="mt-3 space-y-1 text-sm text-foreground">
                     {(student.sessionIds ?? []).map((sessionId) => (
                       <li key={sessionId}>
-                        ✓ {findSessionLabel(classes, sessionId)}
+                        ✓ {findSessionLabel(classes, sessions, sessionId)}
                       </li>
                     ))}
                   </ul>

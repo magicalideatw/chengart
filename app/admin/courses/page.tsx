@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CourseManagement } from "@/components/admin/CourseManagement";
-import { getClassCountsByCourseIds } from "@/lib/classes/queries";
+import { getSessionCountsByCourseIds } from "@/lib/sessions/queries";
+import { getSessionUnitLabel } from "@/lib/sessions/labels";
 import {
   getAllCourses,
   getEnrollmentCountsByCourseIds,
@@ -28,7 +29,7 @@ export default async function AdminCoursesPage() {
     getEnrollmentCountsByCourseIds(courseIds),
     getSoldTicketCountsByCourseIds(performanceCourseIds),
   ]);
-  const classCounts = await getClassCountsByCourseIds(courseIds);
+  const sessionCounts = await getSessionCountsByCourseIds(courseIds);
   const isLegacySchema = await usesLegacyCourseSchema();
 
   return (
@@ -47,7 +48,7 @@ export default async function AdminCoursesPage() {
         courses={courses}
         enrollmentCounts={enrollmentCounts}
         soldTicketCounts={soldTicketCounts}
-        classCounts={classCounts}
+        sessionCounts={sessionCounts}
         canMutate={isSupabaseConfigured() && !isLegacySchema}
       />
     </div>

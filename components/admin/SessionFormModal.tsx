@@ -8,7 +8,7 @@ import {
   type SessionFormInput,
   type SessionStatus,
 } from "@/lib/sessions/types";
-import { sessionToFormInput } from "@/lib/sessions/mappers";
+import { buildEmptySessionForm, sessionToFormInput } from "@/lib/sessions/mappers";
 import type { ClassSession } from "@/lib/sessions/types";
 
 type SessionFormModalProps = {
@@ -17,6 +17,8 @@ type SessionFormModalProps = {
   defaultCapacity?: number;
   defaultStartTime?: string;
   defaultEndTime?: string;
+  defaultPrice?: number;
+  nameLabel?: string;
   title?: string;
   onClose: () => void;
   onSubmit: (input: SessionFormInput) => Promise<{ success: boolean; error?: string }>;
@@ -26,36 +28,32 @@ type SessionFormModalProps = {
 const inputClass =
   "mt-2 w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-1 focus:ring-gold";
 
-function buildEmptyForm(
-  defaultCapacity = 5,
-  defaultStartTime = "",
-  defaultEndTime = "",
-): SessionFormInput {
-  return {
-    date: "",
-    startTime: defaultStartTime,
-    endTime: defaultEndTime,
-    capacity: defaultCapacity,
-    remainingCapacity: defaultCapacity,
-    status: "open",
-    notes: "",
-  };
-}
-
 function buildInitialForm({
   session,
   initialValues,
   defaultCapacity,
   defaultStartTime,
   defaultEndTime,
+  defaultPrice,
 }: Pick<
   SessionFormModalProps,
-  "session" | "initialValues" | "defaultCapacity" | "defaultStartTime" | "defaultEndTime"
+  | "session"
+  | "initialValues"
+  | "defaultCapacity"
+  | "defaultStartTime"
+  | "defaultEndTime"
+  | "defaultPrice"
 >): SessionFormInput {
   if (session) return sessionToFormInput(session);
   return (
     initialValues ??
-    buildEmptyForm(defaultCapacity, defaultStartTime, defaultEndTime)
+    buildEmptySessionForm({
+      capacity: defaultCapacity,
+      remainingCapacity: defaultCapacity,
+      startTime: defaultStartTime,
+      endTime: defaultEndTime,
+      price: defaultPrice ?? 0,
+    })
   );
 }
 
@@ -65,6 +63,8 @@ function SessionFormModalBody({
   defaultCapacity = 5,
   defaultStartTime = "",
   defaultEndTime = "",
+  defaultPrice = 0,
+  nameLabel = "名稱",
   title,
   onClose,
   onSubmit,
@@ -77,6 +77,7 @@ function SessionFormModalBody({
       defaultCapacity,
       defaultStartTime,
       defaultEndTime,
+      defaultPrice,
     }),
   );
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +111,7 @@ function SessionFormModalBody({
     }
   };
 
-  const modalTitle =
-    title ?? (session ? "編輯上課日期" : initialValues ? "複製上課日期" : "新增上課日期");
+  const modalTitle = title ?? (session ? "編輯場次" : initialValues ? "複製場次" : "新增場次");
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
@@ -138,8 +138,19 @@ function SessionFormModalBody({
 
         <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
           <div className="grid gap-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-foreground">{nameLabel}</label>
+              <input
+                value={form.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                placeholder="例如：A班、下午場、第一梯"
+                className={inputClass}
+                required
+              />
+            </div>
+
             <div>
-              <label className="text-sm font-medium text-foreground">上課日期</label>
+              <label className="text-sm font-medium text-foreground">日期</label>
               <input
                 type="date"
                 value={form.date}
@@ -206,9 +217,50 @@ function SessionFormModalBody({
                 disabled
                 className={`${inputClass} bg-surface/80 text-muted`}
               />
-              <p className="mt-1 text-xs text-muted">
-                依已付款報名自動計算，無需手動調整
-              </p>
+              <p className="mt-1 text-xs text-muted">依已付款報名自動計算</p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">價格</label>
+              <input
+                type="number"
+                min={0}
+                value={form.price}
+                onChange={(e) => updateField("price", Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">排序</label>
+              <input
+                type="number"
+                min={0}
+                value={form.sortOrder}
+                onChange={(e) => updateField("sortOrder", Number(e.target.value))}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-foreground">地點（選填）</label>
+              <input
+                value={form.location}
+                onChange={(e) => updateField("location", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.isOpen}
+                  onChange={(e) => updateField("isOpen", e.target.checked)}
+                  className="h-4 w-4 rounded border-border text-gold focus:ring-gold"
+                />
+                開放報名
+              </label>
             </div>
           </div>
 
@@ -225,7 +277,7 @@ function SessionFormModalBody({
 
           {form.status === "cancelled" ? (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              狀態為「已取消」時，前台將不可選取此日期。
+              狀態為「已取消」時，前台將不可選取此場次。
             </p>
           ) : null}
 
@@ -260,6 +312,7 @@ export function SessionFormModal(props: SessionFormModalProps) {
     props.defaultCapacity ?? 5,
     props.defaultStartTime ?? "",
     props.defaultEndTime ?? "",
+    props.defaultPrice ?? 0,
   ].join(":");
 
   return <SessionFormModalBody key={resetKey} {...props} />;

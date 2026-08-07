@@ -19,23 +19,45 @@ function normalizeStatus(value: unknown): SessionStatus {
   return "open";
 }
 
+function readOptionalString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
 export function mapSessionRow(
   row: Record<string, unknown>,
   enrolledCount = 0,
 ): ClassSession {
-  const item = row as SessionRow;
+  const item = row as SessionRow & {
+    course_id?: string | null;
+    name?: string | null;
+    price?: number | null;
+    location?: string | null;
+    is_open?: boolean | null;
+    sort_order?: number | null;
+    class_id?: string | null;
+  };
+
   const capacity = Number(item.capacity ?? 5);
   const enrolled = Number.isFinite(enrolledCount) ? enrolledCount : 0;
   const storedStatus = normalizeStatus(item.status);
+  const isOpen = item.is_open ?? storedStatus === "open";
 
   return {
     id: String(item.id),
-    classId: String(item.class_id),
+    courseId: String(item.course_id ?? ""),
+    classId: readOptionalString(item.class_id),
+    name: String(item.name ?? ""),
     date: String(item.date),
     startTime: String(item.start_time),
     endTime: String(item.end_time),
     capacity,
     remainingCapacity: computeRemainingCapacity(capacity, enrolled),
+    price: Number(item.price ?? 0),
+    location: String(item.location ?? ""),
+    isOpen,
+    sortOrder: Number(item.sort_order ?? 0),
     status: resolveSessionStatusFromEnrollment(storedStatus, capacity, enrolled),
     notes: String(item.notes ?? ""),
     createdAt: String(item.created_at),
@@ -44,9 +66,10 @@ export function mapSessionRow(
 }
 
 export function mapSessionToDb(
-  classId: string,
+  courseId: string,
   input: SessionFormInput,
   enrolledCount = 0,
+  classId?: string | null,
 ): Database["public"]["Tables"]["sessions"]["Insert"] {
   const enrolled = Number.isFinite(enrolledCount) ? enrolledCount : 0;
   const remainingCapacity = computeRemainingCapacity(input.capacity, enrolled);
@@ -56,13 +79,19 @@ export function mapSessionToDb(
       : resolveSessionStatusFromEnrollment(input.status, input.capacity, enrolled);
 
   return {
-    class_id: classId,
+    course_id: courseId,
+    class_id: classId ?? null,
+    name: input.name.trim(),
     date: input.date,
     start_time: input.startTime.trim(),
     end_time: input.endTime.trim(),
     capacity: input.capacity,
     remaining_capacity: remainingCapacity,
-    status,
+    price: input.price,
+    location: input.location.trim(),
+    is_open: input.isOpen,
+    sort_order: input.sortOrder,
+    status: input.isOpen ? status : "closed",
     notes: input.notes.trim(),
     updated_at: new Date().toISOString(),
   };
@@ -70,11 +99,16 @@ export function mapSessionToDb(
 
 export function sessionToFormInput(session: ClassSession): SessionFormInput {
   return {
+    name: session.name,
     date: session.date,
     startTime: session.startTime,
     endTime: session.endTime,
     capacity: session.capacity,
     remainingCapacity: session.remainingCapacity,
+    price: session.price,
+    location: session.location,
+    isOpen: session.isOpen,
+    sortOrder: session.sortOrder,
     status: session.status,
     notes: session.notes,
   };
@@ -82,4 +116,22 @@ export function sessionToFormInput(session: ClassSession): SessionFormInput {
 
 export function formatSessionTimeRange(session: ClassSession): string {
   return `${session.startTime}–${session.endTime}`;
+}
+
+export function buildEmptySessionForm(defaults?: Partial<SessionFormInput>): SessionFormInput {
+  return {
+    name: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    capacity: 5,
+    remainingCapacity: 5,
+    price: 0,
+    location: "",
+    isOpen: true,
+    sortOrder: 0,
+    status: "open",
+    notes: "",
+    ...defaults,
+  };
 }
