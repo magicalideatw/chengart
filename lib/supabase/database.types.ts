@@ -354,8 +354,9 @@ export type Database = {
           id: string;
           class_id: string | null;
           course_id: string | null;
+          session_type: string;
           name: string;
-          date: string;
+          date: string | null;
           start_time: string;
           end_time: string;
           capacity: number;
@@ -373,10 +374,11 @@ export type Database = {
           id?: string;
           class_id?: string | null;
           course_id?: string | null;
+          session_type?: string;
           name?: string;
-          date: string;
-          start_time: string;
-          end_time: string;
+          date?: string | null;
+          start_time?: string;
+          end_time?: string;
           capacity?: number;
           remaining_capacity?: number;
           price?: number;
@@ -392,8 +394,9 @@ export type Database = {
           id?: string;
           class_id?: string | null;
           course_id?: string | null;
+          session_type?: string;
           name?: string;
-          date?: string;
+          date?: string | null;
           start_time?: string;
           end_time?: string;
           capacity?: number;

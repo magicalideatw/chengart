@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
+import { formatCourseSessionSelectionLabel } from "@/lib/sessions/format";
 import type { ClassWithSessionsOption } from "@/lib/registration/plan-utils";
 import type { ClassSession } from "@/lib/sessions/types";
 import type { RegistrationOrderFormValues } from "@/lib/validation/registration-schema";
@@ -34,16 +34,14 @@ function findSessionLabel(
   if (sessions?.length) {
     const session = sessions.find((entry) => entry.id === sessionId);
     if (session) {
-      const name = session.name.trim();
-      const datePart = `${formatSessionCheckboxLabel(session.date)} ${session.startTime}~${session.endTime}`;
-      return name ? `${name} · ${datePart}` : datePart;
+      return formatCourseSessionSelectionLabel(session);
     }
   }
 
   for (const item of classes) {
     const session = item.sessions.find((entry) => entry.id === sessionId);
     if (session) {
-      return `${formatSessionCheckboxLabel(session.date)} ${session.startTime}~${session.endTime}`;
+      return formatCourseSessionSelectionLabel(session);
     }
   }
   return sessionId;

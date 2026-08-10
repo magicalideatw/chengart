@@ -2,6 +2,11 @@
 
 import type { ClassSession } from "@/lib/sessions/types";
 import { isSessionSelectable } from "@/lib/sessions/session-utils";
+import {
+  formatCourseSessionScheduleLines,
+  formatSessionDisplayPrice,
+  isSelfScheduledSession,
+} from "@/lib/sessions/format";
 
 type CourseSessionRadioPickerProps = {
   sessions: ClassSession[];
@@ -32,17 +37,19 @@ export function CourseSessionRadioPicker({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {sessions.map((session) => {
         const selectable = isSessionSelectable(session);
         const statusLabel = sessionStatusLabel(session);
         const checked = selectedSessionId === session.id;
         const label = session.name.trim() || unitLabel;
+        const schedule = formatCourseSessionScheduleLines(session);
+        const priceLabel = formatSessionDisplayPrice(session.price);
 
         return (
           <label
             key={session.id}
-            className={`flex items-center justify-between gap-4 rounded-xl border px-4 py-3 transition ${
+            className={`block rounded-2xl border p-4 transition ${
               selectable
                 ? checked
                   ? "border-gold bg-gold-soft/40"
@@ -50,20 +57,37 @@ export function CourseSessionRadioPicker({
                 : "cursor-not-allowed border-border bg-white/70 opacity-70"
             }`}
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <input
-                type="radio"
-                name="course-session"
-                checked={checked}
-                disabled={!selectable}
-                onChange={() => selectable && onChange(session.id)}
-                className="h-4 w-4 border-border text-gold focus:ring-gold"
-              />
-              <span className="text-sm font-medium text-foreground">{label}</span>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <input
+                  type="radio"
+                  name="course-session"
+                  checked={checked}
+                  disabled={!selectable}
+                  onChange={() => selectable && onChange(session.id)}
+                  className="mt-1 h-4 w-4 shrink-0 border-border text-gold focus:ring-gold"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{label}</p>
+                  <p className="mt-1 text-sm text-foreground">{schedule.primary}</p>
+                  {schedule.secondary ? (
+                    <p
+                      className={`mt-1 text-sm ${
+                        isSelfScheduledSession(session) ? "text-muted" : "text-muted"
+                      }`}
+                    >
+                      {schedule.secondary}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-semibold text-gold">{priceLabel}</p>
+                <p className="mt-2 text-xs text-muted">
+                  {statusLabel ?? `剩 ${session.remainingCapacity} 位`}
+                </p>
+              </div>
             </div>
-            <span className="shrink-0 text-xs text-muted">
-              {statusLabel ?? `剩 ${session.remainingCapacity} 位`}
-            </span>
           </label>
         );
       })}

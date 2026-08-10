@@ -7,8 +7,9 @@ import type {
   ClassSession,
   SessionFormInput,
   SessionStatus,
+  SessionType,
 } from "@/lib/sessions/types";
-import { SESSION_STATUSES } from "@/lib/sessions/types";
+import { SESSION_STATUSES, SESSION_TYPES } from "@/lib/sessions/types";
 
 type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
 
@@ -17,6 +18,13 @@ function normalizeStatus(value: unknown): SessionStatus {
     return value as SessionStatus;
   }
   return "open";
+}
+
+function normalizeSessionType(value: unknown): SessionType {
+  if (typeof value === "string" && SESSION_TYPES.includes(value as SessionType)) {
+    return value as SessionType;
+  }
+  return "fixed";
 }
 
 function readOptionalString(value: unknown): string | null {
@@ -31,6 +39,7 @@ export function mapSessionRow(
 ): ClassSession {
   const item = row as SessionRow & {
     course_id?: string | null;
+    session_type?: string | null;
     name?: string | null;
     price?: number | null;
     location?: string | null;
@@ -48,10 +57,11 @@ export function mapSessionRow(
     id: String(item.id),
     courseId: String(item.course_id ?? ""),
     classId: readOptionalString(item.class_id),
+    sessionType: normalizeSessionType(item.session_type),
     name: String(item.name ?? ""),
-    date: String(item.date),
-    startTime: String(item.start_time),
-    endTime: String(item.end_time),
+    date: item.date ? String(item.date) : "",
+    startTime: String(item.start_time ?? ""),
+    endTime: String(item.end_time ?? ""),
     capacity,
     remainingCapacity: computeRemainingCapacity(capacity, enrolled),
     price: Number(item.price ?? 0),
@@ -78,13 +88,16 @@ export function mapSessionToDb(
       ? input.status
       : resolveSessionStatusFromEnrollment(input.status, input.capacity, enrolled);
 
+  const isSelfScheduled = input.sessionType === "self_scheduled";
+
   return {
     course_id: courseId,
     class_id: classId ?? null,
+    session_type: input.sessionType,
     name: input.name.trim(),
-    date: input.date,
-    start_time: input.startTime.trim(),
-    end_time: input.endTime.trim(),
+    date: isSelfScheduled ? null : input.date,
+    start_time: isSelfScheduled ? "" : input.startTime.trim(),
+    end_time: isSelfScheduled ? "" : input.endTime.trim(),
     capacity: input.capacity,
     remaining_capacity: remainingCapacity,
     price: input.price,
@@ -99,6 +112,7 @@ export function mapSessionToDb(
 
 export function sessionToFormInput(session: ClassSession): SessionFormInput {
   return {
+    sessionType: session.sessionType,
     name: session.name,
     date: session.date,
     startTime: session.startTime,
@@ -115,11 +129,15 @@ export function sessionToFormInput(session: ClassSession): SessionFormInput {
 }
 
 export function formatSessionTimeRange(session: ClassSession): string {
+  if (session.sessionType === "self_scheduled") return "";
+  if (!session.startTime && !session.endTime) return "";
+  if (!session.endTime) return session.startTime;
   return `${session.startTime}–${session.endTime}`;
 }
 
 export function buildEmptySessionForm(defaults?: Partial<SessionFormInput>): SessionFormInput {
   return {
+    sessionType: "fixed",
     name: "",
     date: "",
     startTime: "",

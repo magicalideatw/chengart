@@ -229,6 +229,7 @@ export async function bulkGenerateCourseSessions(
       courseId,
       {
         name,
+        sessionType: "fixed",
         date,
         startTime,
         endTime,

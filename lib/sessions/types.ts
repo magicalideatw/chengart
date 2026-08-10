@@ -9,11 +9,21 @@ export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
   full: "已滿",
 };
 
+export const SESSION_TYPES = ["fixed", "self_scheduled"] as const;
+
+export type SessionType = (typeof SESSION_TYPES)[number];
+
+export const SESSION_TYPE_LABELS: Record<SessionType, string> = {
+  fixed: "固定日期",
+  self_scheduled: "自行預約（協調時間）",
+};
+
 /** Shared activity session (課程班別 / 演出場次 / 營隊梯次) */
 export type ClassSession = {
   id: string;
   courseId: string;
   classId: string | null;
+  sessionType: SessionType;
   name: string;
   date: string;
   startTime: string;
@@ -31,6 +41,7 @@ export type ClassSession = {
 };
 
 export type SessionFormInput = {
+  sessionType: SessionType;
   name: string;
   date: string;
   startTime: string;

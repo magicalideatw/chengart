@@ -5,6 +5,8 @@ import { X } from "lucide-react";
 import {
   SESSION_STATUSES,
   SESSION_STATUS_LABELS,
+  SESSION_TYPES,
+  SESSION_TYPE_LABELS,
   type SessionFormInput,
   type SessionStatus,
 } from "@/lib/sessions/types";
@@ -20,6 +22,7 @@ type SessionFormModalProps = {
   defaultPrice?: number;
   nameLabel?: string;
   title?: string;
+  allowSessionType?: boolean;
   onClose: () => void;
   onSubmit: (input: SessionFormInput) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
@@ -66,6 +69,7 @@ function SessionFormModalBody({
   defaultPrice = 0,
   nameLabel = "名稱",
   title,
+  allowSessionType = false,
   onClose,
   onSubmit,
   isPending,
@@ -112,6 +116,7 @@ function SessionFormModalBody({
   };
 
   const modalTitle = title ?? (session ? "編輯場次" : initialValues ? "複製場次" : "新增場次");
+  const isSelfScheduled = form.sessionType === "self_scheduled";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
@@ -149,18 +154,55 @@ function SessionFormModalBody({
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">日期</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => updateField("date", e.target.value)}
-                className={inputClass}
-                required
-              />
-            </div>
+            {allowSessionType ? (
+              <div className="sm:col-span-2">
+                <p className="text-sm font-medium text-foreground">Session 類型</p>
+                <div className="mt-3 flex flex-wrap gap-4">
+                  {SESSION_TYPES.map((type) => (
+                    <label
+                      key={type}
+                      className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                    >
+                      <input
+                        type="radio"
+                        name="session-type"
+                        checked={form.sessionType === type}
+                        onChange={() => {
+                          if (type === "self_scheduled") {
+                            setForm((current) => ({
+                              ...current,
+                              sessionType: type,
+                              date: "",
+                              startTime: "",
+                              endTime: "",
+                            }));
+                            return;
+                          }
+                          updateField("sessionType", type);
+                        }}
+                        className="h-4 w-4 border-border text-gold focus:ring-gold"
+                      />
+                      {SESSION_TYPE_LABELS[type]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-            <div>
+            {!isSelfScheduled ? (
+              <div>
+                <label className="text-sm font-medium text-foreground">日期</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => updateField("date", e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
+            ) : null}
+
+            <div className={isSelfScheduled ? "sm:col-span-2" : undefined}>
               <label className="text-sm font-medium text-foreground">狀態</label>
               <select
                 value={form.status}
@@ -175,25 +217,35 @@ function SessionFormModalBody({
               </select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">開始時間</label>
-              <input
-                value={form.startTime}
-                onChange={(e) => updateField("startTime", e.target.value)}
-                placeholder="14:00"
-                className={inputClass}
-              />
-            </div>
+            {!isSelfScheduled ? (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-foreground">開始時間</label>
+                  <input
+                    value={form.startTime}
+                    onChange={(e) => updateField("startTime", e.target.value)}
+                    placeholder="14:00"
+                    className={inputClass}
+                    required
+                  />
+                </div>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">結束時間</label>
-              <input
-                value={form.endTime}
-                onChange={(e) => updateField("endTime", e.target.value)}
-                placeholder="15:30"
-                className={inputClass}
-              />
-            </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">結束時間</label>
+                  <input
+                    value={form.endTime}
+                    onChange={(e) => updateField("endTime", e.target.value)}
+                    placeholder="15:30"
+                    className={inputClass}
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="sm:col-span-2 rounded-xl bg-surface px-4 py-3 text-sm text-muted">
+                自行預約場次不需設定日期與時間；學員報名後將由老師聯繫協調上課時間。
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium text-foreground">名額</label>

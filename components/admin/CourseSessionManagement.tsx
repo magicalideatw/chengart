@@ -18,9 +18,11 @@ import {
 } from "@/lib/sessions/mappers";
 import {
   SESSION_STATUS_LABELS,
+  SESSION_TYPE_LABELS,
   type ClassSession,
   type SessionStatus,
 } from "@/lib/sessions/types";
+import { isSelfScheduledSession } from "@/lib/sessions/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { SessionFormModal } from "@/components/admin/SessionFormModal";
 import { Toast } from "@/components/ui/Toast";
@@ -58,11 +60,13 @@ export function CourseSessionManagement({
   const unitLabel = getSessionUnitLabel(course.activityType);
   const sortedSessions = useMemo(
     () =>
-      [...sessions].sort(
-        (a, b) =>
-          a.sortOrder - b.sortOrder ||
-          new Date(a.date).getTime() - new Date(b.date).getTime(),
-      ),
+      [...sessions].sort((a, b) => {
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        if (isSelfScheduledSession(a) && !isSelfScheduledSession(b)) return -1;
+        if (!isSelfScheduledSession(a) && isSelfScheduledSession(b)) return 1;
+        if (!a.date || !b.date) return 0;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      }),
     [sessions],
   );
 
@@ -75,7 +79,7 @@ export function CourseSessionManagement({
     }
 
     const confirmed = window.confirm(
-      `確定要刪除「${session.name || formatSessionDate(session.date)}」嗎？`,
+      `確定要刪除「${session.name || (isSelfScheduledSession(session) ? SESSION_TYPE_LABELS.self_scheduled : formatSessionDate(session.date))}」嗎？`,
     );
     if (!confirmed) return;
 
@@ -146,7 +150,7 @@ export function CourseSessionManagement({
               <table className="min-w-full text-sm">
                 <thead className="border-b border-border bg-surface/60 text-left text-xs uppercase tracking-wider text-muted">
                   <tr>
-                    {["名稱", "日期", "時間", "名額", "價格", "地點", "狀態", "操作"].map(
+                    {["名稱", "類型", "日期", "時間", "名額", "價格", "地點", "狀態", "操作"].map(
                       (label) => (
                         <th key={label} className="px-5 py-4 font-medium">
                           {label}
@@ -161,8 +165,19 @@ export function CourseSessionManagement({
                       <td className="px-5 py-4 font-medium">
                         {session.name.trim() || "—"}
                       </td>
-                      <td className="px-5 py-4">{formatSessionDate(session.date)}</td>
-                      <td className="px-5 py-4">{formatSessionTimeRange(session)}</td>
+                      <td className="px-5 py-4 text-muted">
+                        {SESSION_TYPE_LABELS[session.sessionType]}
+                      </td>
+                      <td className="px-5 py-4">
+                        {isSelfScheduledSession(session)
+                          ? "—"
+                          : formatSessionDate(session.date)}
+                      </td>
+                      <td className="px-5 py-4">
+                        {isSelfScheduledSession(session)
+                          ? "—"
+                          : formatSessionTimeRange(session) || "—"}
+                      </td>
                       <td className="px-5 py-4">
                         {session.remainingCapacity}/{session.capacity}
                       </td>
@@ -225,6 +240,7 @@ export function CourseSessionManagement({
 
       {modal ? (
         <SessionFormModal
+          allowSessionType
           session={modal.mode === "edit" ? modal.session : null}
           initialValues={
             modal.mode === "copy"

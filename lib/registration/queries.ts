@@ -10,7 +10,11 @@ import {
   planToLegacyClassOptions,
 } from "@/lib/registration/plan-utils";
 import { getOpenSessionsByCourseId } from "@/lib/sessions/queries";
-import { formatSessionCheckboxLabel } from "@/lib/sessions/format";
+import {
+  formatSessionCheckboxLabel,
+  formatCourseSessionSelectionLabel,
+  isSelfScheduledSession,
+} from "@/lib/sessions/format";
 import type { ClassSession } from "@/lib/sessions/types";
 import { createPaymentClient, isSupabaseConfigured } from "@/lib/supabase";
 import { isSessionSelectable } from "@/lib/sessions/session-utils";
@@ -128,6 +132,10 @@ export async function validateSessionSelection(
   const sessionSummaries = sessions
     .sort((a, b) => a.sortOrder - b.sortOrder || a.date.localeCompare(b.date))
     .map((session) => {
+      if (isSelfScheduledSession(session)) {
+        const label = session.name.trim() || "班別";
+        return label;
+      }
       const label = session.name.trim() || "班別";
       return `${label} ${formatSessionCheckboxLabel(session.date)} ${session.startTime}~${session.endTime}`;
     });

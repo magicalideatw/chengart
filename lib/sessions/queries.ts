@@ -62,7 +62,9 @@ export async function getOpenSessionsByCourseId(
 
   return sessions.filter((session) => {
     if (!session.isOpen) return false;
-    if (fromDate && session.date < fromDate) return false;
+    if (fromDate && session.sessionType === "fixed" && session.date && session.date < fromDate) {
+      return false;
+    }
     return true;
   });
 }
