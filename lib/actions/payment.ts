@@ -24,6 +24,8 @@ import { getEffectivePricePerStudent, countRegistrationSessionSlots } from "@/li
 import {
   getCourseRegistrationPlan,
   validateSessionSelection,
+  validateCoursePlanSelection,
+  buildCoursePlanSessionSummary,
 } from "@/lib/registration/queries";
 import {
   normalizeStudentsFromFormData,
@@ -99,8 +101,14 @@ export async function createRegistrationOrder(
 
   const plan = await getCourseRegistrationPlan(course.id);
   const usesSessions = plan?.usesSessions ?? false;
+  const usesCoursePlans = plan?.usesCoursePlans ?? false;
+  const coursePlanId = orderFormData.coursePlanId;
 
-  if (usesSessions) {
+  if (usesCoursePlans) {
+    if (!coursePlanId) {
+      return { success: false, error: "請選擇課程方案" };
+    }
+  } else if (usesSessions) {
     const missingSessions = students.some(
       (student) => (student.sessionIds?.length ?? 0) === 0,
     );
@@ -114,19 +122,38 @@ export async function createRegistrationOrder(
     sessionIds: input.sessionIds,
   });
 
-  const sessionSlotCount = countRegistrationSessionSlots(students, { usesSessions });
+  let selectedCoursePlan = null;
+  if (usesCoursePlans && coursePlanId) {
+    const planResult = await validateCoursePlanSelection(course.id, coursePlanId);
+    if (!planResult.success) {
+      return { success: false, error: planResult.error };
+    }
+    selectedCoursePlan = planResult.data.plan;
+  }
+
+  const sessionSlotCount =
+    usesCoursePlans && selectedCoursePlan
+      ? selectedCoursePlan.sessionCount * students.length
+      : countRegistrationSessionSlots(students, { usesSessions });
 
   const pricingRules = courseToPricingRules(course);
   const basePricePerStudent = getEffectivePricePerStudent(course);
   let promoCodeRecord = null;
 
-  if (basePricePerStudent > 0 && orderFormData.promoCode?.trim()) {
+  const packagePricePerStudent =
+    usesCoursePlans && selectedCoursePlan ? selectedCoursePlan.price : undefined;
+
+  if (
+    (packagePricePerStudent ?? basePricePerStudent) > 0 &&
+    orderFormData.promoCode?.trim()
+  ) {
     const promoResult = await validatePromoCode({
       courseId: course.id,
       code: orderFormData.promoCode,
       studentCount: students.length,
       sessionSlotCount,
       email: orderFormData.email,
+      packagePricePerStudent,
     });
 
     if (!promoResult.success) {
@@ -141,6 +168,7 @@ export async function createRegistrationOrder(
     studentCount: students.length,
     sessionSlotCount,
     promoCode: promoCodeRecord,
+    packagePricePerStudent,
   });
 
   const amount = pricing.total;
@@ -152,9 +180,16 @@ export async function createRegistrationOrder(
     unitPrice: pricing.basePricePerStudent,
     promoCode: pricing.promoCode ?? undefined,
     pricingSnapshot: pricing,
+    ...(selectedCoursePlan
+      ? {
+          coursePlanId: selectedCoursePlan.id,
+          coursePlanName: buildCoursePlanSessionSummary(selectedCoursePlan),
+          coursePlanSessionCount: selectedCoursePlan.sessionCount,
+        }
+      : {}),
   };
 
-  if (usesSessions && allSessionIds.length > 0) {
+  if ((usesSessions || usesCoursePlans) && allSessionIds.length > 0) {
     const validation = await validateSessionSelection(course.id, allSessionIds);
     if (!validation.success) {
       return { success: false, error: validation.error };
@@ -163,7 +198,9 @@ export async function createRegistrationOrder(
     enrichedFormData = {
       ...enrichedFormData,
       sessionIds: allSessionIds,
-      sessionSummaries: validation.data.sessionSummaries,
+      sessionSummaries: selectedCoursePlan
+        ? [buildCoursePlanSessionSummary(selectedCoursePlan)]
+        : validation.data.sessionSummaries,
     };
   } else if (!usesSessions && course.isFull) {
     return { success: false, error: "此課程已額滿" };

@@ -7,6 +7,7 @@ import {
 } from "@/lib/pricing/engine";
 import type { PricingSnapshot, PromoCodeRecord } from "@/lib/pricing/types";
 import { getCourseById } from "@/lib/courses/queries";
+import { getEffectivePricePerStudent } from "@/lib/registration/pricing";
 import {
   countPromoRedemptionsByEmail,
   findPromoCodeByCode,
@@ -22,6 +23,7 @@ export async function validatePromoCode(input: {
   studentCount: number;
   sessionSlotCount?: number;
   email?: string;
+  packagePricePerStudent?: number;
 }): Promise<ValidatePromoCodeResult> {
   const course = await getCourseById(input.courseId);
 
@@ -30,8 +32,10 @@ export async function validatePromoCode(input: {
   }
 
   const pricingRules = courseToPricingRules(course);
+  const packagePrice = input.packagePricePerStudent;
+  const basePrice = getEffectivePricePerStudent(pricingRules);
 
-  if (pricingRules.pricePerStudent <= 0) {
+  if ((packagePrice ?? basePrice) <= 0) {
     return { success: false, error: "免費活動不適用折扣碼" };
   }
 
@@ -72,6 +76,7 @@ export async function validatePromoCode(input: {
     studentCount: input.studentCount,
     sessionSlotCount: input.sessionSlotCount,
     promoCode: promo,
+    packagePricePerStudent: packagePrice,
   });
 
   if (pricing.total === pricing.subtotal) {

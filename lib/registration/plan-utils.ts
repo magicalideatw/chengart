@@ -3,11 +3,15 @@ import {
   getSessionUnitPrice,
 } from "@/lib/sessions/course-options";
 import type { ClassSession } from "@/lib/sessions/types";
+import type { CoursePlan } from "@/lib/course-plans/types";
 
 export type CourseRegistrationPlanShape = {
   usesSessions: boolean;
+  usesCoursePlans: boolean;
   sessions: ClassSession[];
   courseSessionOptions: ClassSession[];
+  coursePlans: CoursePlan[];
+  primarySelfScheduledSessionId: string | null;
   defaultUnitPrice: number;
   hasSelectableSessions: boolean;
 };

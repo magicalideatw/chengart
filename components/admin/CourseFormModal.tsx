@@ -10,7 +10,9 @@ import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
 import { PromoCodeSection } from "@/components/admin/PromoCodeSection";
 import { TicketTypeSection } from "@/components/admin/TicketTypeSection";
 import { CourseMediaSection } from "@/components/admin/CourseMediaSection";
+import { CoursePlanSection } from "@/components/admin/CoursePlanSection";
 import { getCourseMediaForCourseAction } from "@/lib/actions/admin/course-media";
+import { getCoursePlansForCourseAction } from "@/lib/actions/admin/course-plans";
 import { getTicketTypesForCourseAction } from "@/lib/actions/admin/ticket-types";
 import {
   COURSE_CATEGORIES,
@@ -42,6 +44,7 @@ import {
 import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { TicketTypeRecord } from "@/lib/ticket-types/types";
 import type { CourseMediaRecord } from "@/lib/media/types";
+import type { CoursePlan } from "@/lib/course-plans/types";
 import { formatCourseSessionTimeRange } from "@/lib/courses/session-time";
 import {
   SESSION_TYPES,
@@ -168,6 +171,7 @@ export function CourseFormModal({
   const [promoCodes, setPromoCodes] = useState<PromoCodeRecord[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeRecord[]>([]);
   const [mediaItems, setMediaItems] = useState<CourseMediaRecord[]>([]);
+  const [coursePlans, setCoursePlans] = useState<CoursePlan[]>([]);
   const router = useRouter();
 
   const isFreeCourse = form.pricePerStudent <= 0;
@@ -195,6 +199,7 @@ export function CourseFormModal({
     void getPromoCodesForCourseAction(course.id).then(setPromoCodes);
     void getTicketTypesForCourseAction(course.id).then(setTicketTypes);
     void getCourseMediaForCourseAction(course.id).then(setMediaItems);
+    void getCoursePlansForCourseAction(course.id).then(setCoursePlans);
     void getCourseScheduleForFormAction(course.id).then((schedule) => {
       if (!schedule) return;
       setForm((current) => ({ ...current, ...schedule }));
@@ -830,6 +835,18 @@ export function CourseFormModal({
               若不顯示，前台僅顯示「招生中」或「已額滿」
             </p>
           </Section>
+
+          {course?.id && isSelfScheduled ? (
+            <CoursePlanSection
+              courseId={course.id}
+              plans={coursePlans}
+              canMutate
+              onChanged={() => {
+                void getCoursePlansForCourseAction(course.id).then(setCoursePlans);
+                router.refresh();
+              }}
+            />
+          ) : null}
 
           {course?.id ? (
             <CourseMediaSection

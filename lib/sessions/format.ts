@@ -3,7 +3,7 @@ const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"] as const
 export const SELF_SCHEDULED_SCHEDULE_TITLE = "📅 上課時間";
 
 export const SELF_SCHEDULED_SCHEDULE_MESSAGE =
-  "報名完成後，將由老師與您聯繫，協調上課日期與時間。";
+  "報名完成後，將由老師與您聯繫，協調每堂上課日期與時間。";
 
 export function isSelfScheduledSession(session: {
   sessionType?: string;

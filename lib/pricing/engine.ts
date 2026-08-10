@@ -75,12 +75,15 @@ export function calculateRegistrationPricing(input: {
   sessionSlotCount?: number;
   promoCode?: PromoCodeRecord | null;
   asOf?: Date;
+  /** Package price per student (e.g. self-scheduled course plan). */
+  packagePricePerStudent?: number;
 }): PricingSnapshot {
   const count = Math.max(input.studentCount, 0);
   const slotCount = Math.max(input.sessionSlotCount ?? count, 0);
   const basePricePerStudent = getEffectivePricePerStudent(input.course);
+  const packagePrice = input.packagePricePerStudent;
 
-  if (basePricePerStudent <= 0 || count === 0 || slotCount === 0) {
+  if ((packagePrice == null && basePricePerStudent <= 0) || count === 0 || slotCount === 0) {
     return {
       basePricePerStudent,
       studentCount: count,
@@ -96,7 +99,9 @@ export function calculateRegistrationPricing(input: {
     };
   }
 
-  const subtotal = basePricePerStudent * slotCount;
+  const effectiveUnitPrice = packagePrice ?? basePricePerStudent;
+  const subtotal =
+    packagePrice != null ? packagePrice * count : basePricePerStudent * slotCount;
   const lines: PricingLineItem[] = [
     { key: "subtotal", label: "原價", amount: subtotal },
   ];
@@ -180,7 +185,7 @@ export function calculateRegistrationPricing(input: {
   }
 
   return {
-    basePricePerStudent,
+    basePricePerStudent: effectiveUnitPrice,
     studentCount: count,
     sessionSlotCount: slotCount,
     subtotal,
@@ -190,7 +195,7 @@ export function calculateRegistrationPricing(input: {
     promoCode: promo?.code ?? null,
     promoCodeId: promo?.id ?? null,
     promoCodeName: promo?.name ?? null,
-    isFreeCourse: false,
+    isFreeCourse: effectiveUnitPrice <= 0,
   };
 }
 

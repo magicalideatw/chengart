@@ -35,6 +35,7 @@ type PromoCodeInputProps = {
   sessionSlotCount: number;
   email?: string;
   appliedCode: string | null;
+  packagePricePerStudent?: number;
   onApplied: (
     code: string | null,
     promo: PromoCodeRecord | null,
@@ -51,6 +52,7 @@ export function PromoCodeInput({
   appliedCode,
   onApplied,
   disabled = false,
+  packagePricePerStudent,
 }: PromoCodeInputProps) {
   const [input, setInput] = useState(appliedCode ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export function PromoCodeInput({
         studentCount,
         sessionSlotCount,
         email,
+        packagePricePerStudent,
       });
 
       if (!result.success) {
@@ -151,6 +154,8 @@ type RegistrationPriceSummaryProps = {
     pricing: PricingSnapshot,
   ) => void;
   variant?: "sidebar" | "inline";
+  showSessionSlots?: boolean;
+  packagePricePerStudent?: number;
 };
 
 function SummaryRow({
@@ -182,6 +187,8 @@ export function RegistrationPriceSummary({
   appliedPromoCode,
   onPromoApplied,
   variant = "sidebar",
+  showSessionSlots = false,
+  packagePricePerStudent,
 }: RegistrationPriceSummaryProps) {
   const containerClass =
     variant === "sidebar"
@@ -210,7 +217,7 @@ export function RegistrationPriceSummary({
           label="報名人數"
           value={`${pricing.studentCount} 位`}
         />
-        {pricing.sessionSlotCount !== pricing.studentCount ? (
+        {showSessionSlots || pricing.sessionSlotCount !== pricing.studentCount ? (
           <SummaryRow label="堂數" value={`${pricing.sessionSlotCount} 堂`} />
         ) : null}
 
@@ -250,6 +257,7 @@ export function RegistrationPriceSummary({
           onApplied={(code, promo, nextPricing) =>
             onPromoApplied(code, promo, nextPricing)
           }
+          packagePricePerStudent={packagePricePerStudent}
         />
       ) : null}
     </aside>

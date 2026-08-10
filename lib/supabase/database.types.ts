@@ -166,6 +166,50 @@ export type Database = {
           },
         ];
       };
+      course_plans: {
+        Row: {
+          id: string;
+          course_id: string;
+          name: string;
+          session_count: number;
+          price: number;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          name?: string;
+          session_count: number;
+          price?: number;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          name?: string;
+          session_count?: number;
+          price?: number;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "course_plans_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ticket_types: {
         Row: {
           id: string;

@@ -68,6 +68,9 @@ export function ConfirmStep({
 
   const rows = [
     { label: "課程", value: courseTitle },
+    ...(formData.coursePlanName
+      ? [{ label: "課程方案", value: formData.coursePlanName }]
+      : []),
     ...(dateLabel ? [{ label: "日期", value: dateLabel }] : []),
     ...(classTime ? [{ label: "時間", value: classTime }] : []),
     { label: "費用", value: feeLabel },
@@ -123,7 +126,9 @@ export function ConfirmStep({
               年齡 {formData.students[0]?.studentAge || "—"} ·{" "}
               性別 {formatGender(formData.students[0]?.gender)}
             </p>
-            {usesSessions ? (
+            {formData.coursePlanName ? (
+              <p className="mt-3 text-sm text-foreground">✓ {formData.coursePlanName}</p>
+            ) : usesSessions ? (
               <ul className="mt-3 space-y-1 text-sm text-foreground">
                 {(formData.students[0]?.sessionIds ?? []).map((sessionId) => (
                   <li key={sessionId}>✓ {findSessionLabel(classes, sessions, sessionId)}</li>
@@ -152,7 +157,9 @@ export function ConfirmStep({
                 {student.note?.trim() ? (
                   <p className="mt-2 text-sm text-muted">備註：{student.note.trim()}</p>
                 ) : null}
-                {usesSessions ? (
+                {formData.coursePlanName ? (
+                  <p className="mt-3 text-sm text-foreground">✓ {formData.coursePlanName}</p>
+                ) : usesSessions ? (
                   <ul className="mt-3 space-y-1 text-sm text-foreground">
                     {(student.sessionIds ?? []).map((sessionId) => (
                       <li key={sessionId}>

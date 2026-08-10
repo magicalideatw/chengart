@@ -18,6 +18,9 @@ import {
 import type { ClassSession } from "@/lib/sessions/types";
 import { createPaymentClient, isSupabaseConfigured } from "@/lib/supabase";
 import { isSessionSelectable } from "@/lib/sessions/session-utils";
+import { getVisibleCoursePlansByCourseId, getCoursePlanById } from "@/lib/course-plans/queries";
+import type { CoursePlan } from "@/lib/course-plans/types";
+import { formatCoursePlanLabel } from "@/lib/course-plans/mappers";
 
 export { isSessionSelectable };
 
@@ -40,15 +43,25 @@ export async function getCourseRegistrationPlan(
   if (!course) return null;
 
   const today = todayIsoDate();
-  const sessions = await getOpenSessionsByCourseId(courseId, { fromDate: today });
+  const [sessions, coursePlans] = await Promise.all([
+    getOpenSessionsByCourseId(courseId, { fromDate: today }),
+    getVisibleCoursePlansByCourseId(courseId),
+  ]);
   const courseSessionOptions = getCourseSessionRadioOptions(sessions);
-  const usesSessions = courseSessionOptions.length > 0;
-  const hasSelectableSessions = courseSessionOptions.some(isSessionSelectable);
+  const selfScheduledOptions = courseSessionOptions.filter(isSelfScheduledSession);
+  const usesCoursePlans = selfScheduledOptions.length > 0 && coursePlans.length > 0;
+  const usesSessions = usesCoursePlans || courseSessionOptions.length > 0;
+  const hasSelectableSessions = usesCoursePlans
+    ? true
+    : courseSessionOptions.some(isSessionSelectable);
 
   return {
     usesSessions,
+    usesCoursePlans,
     sessions,
     courseSessionOptions,
+    coursePlans,
+    primarySelfScheduledSessionId: selfScheduledOptions[0]?.id ?? null,
     defaultUnitPrice: course.fee,
     hasSelectableSessions,
   };
@@ -168,4 +181,27 @@ export async function validatePerformanceSessionSelection(
   }
 
   return { success: true, data: { session: result.data.sessions[0] } };
+}
+
+export async function validateCoursePlanSelection(
+  courseId: string,
+  planId: string,
+): Promise<
+  | { success: true; data: { plan: CoursePlan } }
+  | { success: false; error: string }
+> {
+  if (!planId) {
+    return { success: false, error: "請選擇課程方案" };
+  }
+
+  const plan = await getCoursePlanById(planId);
+  if (!plan || plan.courseId !== courseId || !plan.isActive) {
+    return { success: false, error: "所選課程方案不存在或已下架，請重新整理後再試" };
+  }
+
+  return { success: true, data: { plan } };
+}
+
+export function buildCoursePlanSessionSummary(plan: CoursePlan): string {
+  return formatCoursePlanLabel(plan);
 }

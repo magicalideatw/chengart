@@ -51,6 +51,9 @@ import { ConfirmStep } from "./ConfirmStep";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { RegistrationPriceSummary } from "./RegistrationPriceSummary";
 import { CourseSessionRadioPicker } from "./CourseSessionRadioPicker";
+import { CoursePlanRadioPicker } from "./CoursePlanRadioPicker";
+import { SelfScheduledScheduleNotice } from "./SelfScheduledScheduleNotice";
+import { formatCoursePlanLabel } from "@/lib/course-plans/mappers";
 
 type CourseRegistrationFlowProps = {
   course: CourseWithEnrollment;
@@ -81,15 +84,25 @@ export function CourseRegistrationFlow({
   const [selectedCourseSessionId, setSelectedCourseSessionId] = useState<string | null>(
     null,
   );
+  const [selectedCoursePlanId, setSelectedCoursePlanId] = useState<string | null>(
+    null,
+  );
   const router = useRouter();
 
   const usesSessions = plan.usesSessions;
+  const usesCoursePlans = plan.usesCoursePlans;
+  const selectedPlan = useMemo(
+    () => plan.coursePlans.find((entry) => entry.id === selectedCoursePlanId) ?? null,
+    [plan.coursePlans, selectedCoursePlanId],
+  );
   const legacyClassOptions = useMemo(
     () => planToLegacyClassOptions(plan),
     [plan],
   );
   const pricingRules = useMemo(() => courseToPricingRules(course), [course]);
-  const isFreeCourse = pricingRules.pricePerStudent <= 0;
+  const isFreeCourse = usesCoursePlans
+    ? (selectedPlan?.price ?? 0) <= 0
+    : pricingRules.pricePerStudent <= 0;
 
   const activeType = resolveActiveRegistrationType({
     registrationMode: course.registrationMode,
@@ -152,15 +165,18 @@ export function CourseRegistrationFlow({
             sessionIds: student.sessionIds ?? [],
           }));
 
-  const sessionSlotCount = countRegistrationSessionSlots(pricingStudents, {
-    usesSessions,
-  });
+  const sessionSlotCount = usesCoursePlans && selectedPlan
+    ? selectedPlan.sessionCount * studentCount
+    : countRegistrationSessionSlots(pricingStudents, {
+        usesSessions,
+      });
 
   const pricing = calculateRegistrationPricing({
     course: pricingRules,
     studentCount,
     sessionSlotCount,
     promoCode: appliedPromoRecord,
+    packagePricePerStudent: usesCoursePlans && selectedPlan ? selectedPlan.price : undefined,
   });
 
   const totalAmount = pricing.total;
@@ -218,7 +234,31 @@ export function CourseRegistrationFlow({
 
     if (!valid) return;
 
-    if (usesSessions) {
+    if (usesCoursePlans) {
+      if (!selectedPlan) {
+        setErrorMessage("請選擇課程方案");
+        return;
+      }
+
+      const primarySessionId = plan.primarySelfScheduledSessionId;
+      if (!primarySessionId) {
+        setErrorMessage("此課程尚未設定可報名場次，請聯絡管理員");
+        return;
+      }
+
+      if (activeType === "adult") {
+        adultMethods.setValue("sessionIds", [primarySessionId], {
+          shouldValidate: true,
+        });
+      } else {
+        const students = parentMethods.getValues("students");
+        students.forEach((_, index) => {
+          parentMethods.setValue(`students.${index}.sessionIds`, [primarySessionId], {
+            shouldValidate: true,
+          });
+        });
+      }
+    } else if (usesSessions) {
       if (!selectedCourseSessionId) {
         setErrorMessage("請選擇班別");
         return;
@@ -254,6 +294,13 @@ export function CourseRegistrationFlow({
       ...orderData,
       promoCode: appliedPromoCode ?? undefined,
       pricingSnapshot: pricing,
+      ...(usesCoursePlans && selectedPlan
+        ? {
+            coursePlanId: selectedPlan.id,
+            coursePlanName: formatCoursePlanLabel(selectedPlan),
+            coursePlanSessionCount: selectedPlan.sessionCount,
+          }
+        : {}),
     });
     setPaymentMethod((current) => current ?? defaultPaymentMethod);
     setShowConfirm(true);
@@ -310,7 +357,11 @@ export function CourseRegistrationFlow({
 
   const currentStep = showConfirm ? 2 : 1;
   const needsTypeSelection = course.registrationMode === "both" && !activeType;
-  const showPriceSummary = !needsTypeSelection && studentCount > 0 && !isFreeCourse;
+  const showPriceSummary =
+    !needsTypeSelection &&
+    studentCount > 0 &&
+    !isFreeCourse &&
+    (!usesCoursePlans || Boolean(selectedPlan));
 
   const summaryProps = {
     pricing,
@@ -319,6 +370,9 @@ export function CourseRegistrationFlow({
     email: contactEmail,
     appliedPromoCode,
     onPromoApplied: handlePromoApplied,
+    showSessionSlots: usesCoursePlans,
+    packagePricePerStudent:
+      usesCoursePlans && selectedPlan ? selectedPlan.price : undefined,
   };
 
   return (
@@ -367,7 +421,23 @@ export function CourseRegistrationFlow({
                       </div>
                     ) : null}
 
-                    {usesSessions ? (
+                    {usesCoursePlans ? (
+                      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+                        <h3 className="font-display text-lg font-semibold text-foreground">
+                          請選擇課程方案
+                        </h3>
+                        <div className="mt-4">
+                          <CoursePlanRadioPicker
+                            plans={plan.coursePlans}
+                            selectedPlanId={selectedCoursePlanId}
+                            onChange={setSelectedCoursePlanId}
+                          />
+                        </div>
+                        <div className="mt-5">
+                          <SelfScheduledScheduleNotice />
+                        </div>
+                      </div>
+                    ) : usesSessions ? (
                       <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
                         <h3 className="font-display text-lg font-semibold text-foreground">
                           選擇班別
