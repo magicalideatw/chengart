@@ -26,6 +26,9 @@ export function PerformancePurchaseHero({
         <CourseCoverImage
           src={course.coverImage}
           alt={course.title}
+          fill={false}
+          width={1400}
+          height={900}
           priority
           sizes={ACTIVITY_DETAIL_HERO_IMAGE_SIZES}
           className={ACTIVITY_DETAIL_HERO_IMAGE_CLASS}
