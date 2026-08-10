@@ -13,6 +13,10 @@ import type { AdminActionResult } from "@/lib/admin/types";
 import type { CourseFormInput } from "@/lib/courses/types";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 import { adminCourseSchema } from "@/lib/validation/admin-course-schema";
+import { getCourseById } from "@/lib/courses/queries";
+import { parseCourseSessionTimeRange } from "@/lib/courses/session-time";
+import { syncPrimaryCourseSession, resolveCourseFormScheduleFromSessions } from "@/lib/sessions/sync-course-session";
+import { getSessionsByCourseId } from "@/lib/sessions/queries";
 
 function mutationUnavailable(): AdminActionResult {
   return {
@@ -75,9 +79,11 @@ export async function createCourse(
     const supabase = await getMutationClient();
     if (!supabase) return mutationUnavailable();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("courses")
-      .insert(mapCourseToDb(parsed.data));
+      .insert(mapCourseToDb(parsed.data))
+      .select("id")
+      .single();
 
     if (error) {
       console.error("[createCourseAction]", error);
@@ -99,6 +105,15 @@ export async function createCourse(
         success: false,
         error: `新增課程失敗\n${formatSupabaseError(error)}`,
       };
+    }
+
+    if (data?.id) {
+      const syncResult = await syncPrimaryCourseSession(data.id, parsed.data);
+      if (!syncResult.success) {
+        return syncResult;
+      }
+      revalidatePath(`/courses/${data.id}`);
+      revalidatePath(`/admin/courses/${data.id}/sessions`);
     }
 
     revalidateCoursePaths();
@@ -145,9 +160,33 @@ export async function updateCourse(
     };
   }
 
+  const syncResult = await syncPrimaryCourseSession(id, parsed.data);
+  if (!syncResult.success) {
+    return syncResult;
+  }
+
   revalidateCoursePaths();
   revalidatePath(`/courses/${id}`);
+  revalidatePath(`/admin/courses/${id}/sessions`);
   return { success: true };
+}
+
+export async function getCourseScheduleForFormAction(courseId: string) {
+  await requireAuthenticatedUser();
+
+  const course = await getCourseById(courseId);
+  if (!course) return null;
+
+  const sessions = await getSessionsByCourseId(courseId);
+
+  return resolveCourseFormScheduleFromSessions(
+    {
+      sessionDate: course.sessionDate,
+      sessionTime: course.sessionTime,
+      scheduleMode: "fixed",
+    },
+    sessions,
+  );
 }
 
 export async function deleteCourse(_id: string): Promise<AdminActionResult> {

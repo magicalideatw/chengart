@@ -5,6 +5,7 @@ import { ACTIVITY_TYPES } from "@/lib/courses/activity-type";
 import { PARTICIPATION_METHODS } from "@/lib/courses/participation-method";
 import { DISCOUNT_TYPES } from "@/lib/pricing/types";
 import { PAID_PAYMENT_METHODS } from "@/lib/payment/types";
+import { SESSION_TYPES } from "@/lib/sessions/types";
 
 export const adminCourseSchema = z
   .object({
@@ -25,8 +26,11 @@ export const adminCourseSchema = z
     externalUrl: z.string().trim().optional().default(""),
     actionButtonText: z.string().trim().optional().default(""),
     isOpen: z.boolean().default(true),
-    sessionDate: z.string().min(1, "請填寫上課日期"),
-    sessionTime: z.string().min(1, "請填寫上課時間"),
+    scheduleMode: z.enum(SESSION_TYPES).default("fixed"),
+    sessionDate: z.string().trim().default(""),
+    sessionStartTime: z.string().trim().default(""),
+    sessionEndTime: z.string().trim().default(""),
+    sessionTime: z.string().trim().default(""),
     capacity: z.coerce.number().int().min(1, "名額至少為 1"),
     coverImage: z
       .string()
@@ -64,6 +68,32 @@ export const adminCourseSchema = z
     groupDiscountValue: z.coerce.number().int().min(0).default(0),
   })
   .superRefine((data, ctx) => {
+    if (data.activityType === "course" && data.scheduleMode === "fixed") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data.sessionDate)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請填寫上課日期",
+          path: ["sessionDate"],
+        });
+      }
+
+      if (!data.sessionStartTime.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請填寫開始時間",
+          path: ["sessionStartTime"],
+        });
+      }
+
+      if (!data.sessionEndTime.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "請填寫結束時間",
+          path: ["sessionEndTime"],
+        });
+      }
+    }
+
     if (data.participationMethod === "external") {
       if (!data.externalUrl) {
         ctx.addIssue({

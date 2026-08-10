@@ -3,6 +3,7 @@ import type { RegistrationMode } from "@/lib/courses/registration-mode";
 import type { ActivityType } from "@/lib/courses/activity-type";
 import type { ParticipationMethod } from "@/lib/courses/participation-method";
 import type { PaymentMethod, PaidPaymentMethod } from "@/lib/payment/types";
+import type { SessionType } from "@/lib/sessions/types";
 
 export const COURSE_CATEGORIES = [
   "冬夏令營",
@@ -83,7 +84,10 @@ export type CourseFormInput = {
   externalUrl: string;
   actionButtonText: string;
   isOpen: boolean;
+  scheduleMode: SessionType;
   sessionDate: string;
+  sessionStartTime: string;
+  sessionEndTime: string;
   sessionTime: string;
   capacity: number;
   coverImage: string;

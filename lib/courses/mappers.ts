@@ -13,6 +13,7 @@ import {
   normalizeCourseCoverStorageValue,
   sanitizeCourseCoverForStorage,
 } from "@/lib/courses/cover-image";
+import { formatCourseSessionTimeRange } from "@/lib/courses/session-time";
 
 type CourseRow = Database["public"]["Tables"]["courses"]["Row"];
 
@@ -163,6 +164,13 @@ export function mapCourseToDb(
   const paidMethods: PaymentMethod[] =
     input.pricePerStudent <= 0 ? [] : [...input.allowedPaymentMethods];
 
+  const isSelfScheduled =
+    input.activityType === "course" && input.scheduleMode === "self_scheduled";
+  const sessionTime = isSelfScheduled
+    ? ""
+    : formatCourseSessionTimeRange(input.sessionStartTime, input.sessionEndTime) ||
+      input.sessionTime.trim();
+
   return {
     title: input.title,
     category: input.category,
@@ -179,8 +187,8 @@ export function mapCourseToDb(
       input.actionButtonText,
       input.activityType,
     ),
-    session_date: input.sessionDate,
-    session_time: input.sessionTime,
+    session_date: isSelfScheduled ? "2099-01-01" : input.sessionDate,
+    session_time: sessionTime || "—",
     capacity: input.capacity,
     fee: input.pricePerStudent,
     cover_image: sanitizeCourseCoverForStorage(input.coverImage),

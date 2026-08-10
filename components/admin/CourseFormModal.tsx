@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Upload } from "lucide-react";
-import { uploadCourseCover } from "@/lib/actions/admin/courses";
+import { uploadCourseCover, getCourseScheduleForFormAction } from "@/lib/actions/admin/courses";
 import { getPromoCodesForCourseAction } from "@/lib/actions/admin/promo-codes";
 import { COURSE_COVER_ACCEPT } from "@/lib/courses/constants";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
@@ -42,6 +42,12 @@ import {
 import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { TicketTypeRecord } from "@/lib/ticket-types/types";
 import type { CourseMediaRecord } from "@/lib/media/types";
+import { formatCourseSessionTimeRange } from "@/lib/courses/session-time";
+import {
+  SESSION_TYPES,
+  SESSION_TYPE_LABELS,
+  type SessionType,
+} from "@/lib/sessions/types";
 
 type CourseFormModalProps = {
   course?: Course | null;
@@ -61,7 +67,10 @@ const emptyForm: CourseFormInput = {
   externalUrl: "",
   actionButtonText: getDefaultActionButtonText("course"),
   isOpen: true,
+  scheduleMode: "fixed",
   sessionDate: "",
+  sessionStartTime: "",
+  sessionEndTime: "",
   sessionTime: "",
   capacity: 5,
   coverImage: "",
@@ -118,8 +127,11 @@ function courseToFormInput(course: Course): CourseFormInput {
     externalUrl: course.externalUrl ?? "",
   actionButtonText: course.actionButtonText,
   isOpen: course.isOpen,
+  scheduleMode: "fixed",
   sessionDate: course.sessionDate,
-    sessionTime: course.sessionTime,
+  sessionStartTime: "",
+  sessionEndTime: "",
+  sessionTime: course.sessionTime,
     capacity: course.capacity,
     coverImage: course.coverImage,
     allowedPaymentMethods: course.allowedPaymentMethods.filter(
@@ -183,6 +195,10 @@ export function CourseFormModal({
     void getPromoCodesForCourseAction(course.id).then(setPromoCodes);
     void getTicketTypesForCourseAction(course.id).then(setTicketTypes);
     void getCourseMediaForCourseAction(course.id).then(setMediaItems);
+    void getCourseScheduleForFormAction(course.id).then((schedule) => {
+      if (!schedule) return;
+      setForm((current) => ({ ...current, ...schedule }));
+    });
   }, [course?.id]);
 
   const renderDiscountTypeRadios = (
@@ -224,12 +240,20 @@ export function CourseFormModal({
     updateField("coverImage", result.path);
   };
 
+  const isCourseActivity = form.activityType === "course";
+  const isSelfScheduled = isCourseActivity && form.scheduleMode === "self_scheduled";
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
 
     const payload: CourseFormInput = {
       ...form,
+      sessionTime: isSelfScheduled
+        ? ""
+        : isCourseActivity
+          ? formatCourseSessionTimeRange(form.sessionStartTime, form.sessionEndTime)
+          : form.sessionTime,
       allowedPaymentMethods: isFreeCourse ? [] : form.allowedPaymentMethods,
       transferDeadlineDays:
         isFreeCourse || !usesBankTransfer ? null : form.transferDeadlineDays,
@@ -666,24 +690,95 @@ export function CourseFormModal({
 
           <Section title="招生設定">
             <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-foreground">上課日期</label>
-                <input
-                  type="date"
-                  value={form.sessionDate}
-                  onChange={(e) => updateField("sessionDate", e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">上課時間</label>
-                <input
-                  value={form.sessionTime}
-                  onChange={(e) => updateField("sessionTime", e.target.value)}
-                  placeholder="例如 14:00–15:00"
-                  className={inputClass}
-                />
-              </div>
+              {isCourseActivity ? (
+                <div className="sm:col-span-2">
+                  <p className="text-sm font-medium text-foreground">上課方式</p>
+                  <div className="mt-3 flex flex-wrap gap-4">
+                    {SESSION_TYPES.map((type) => (
+                      <label
+                        key={type}
+                        className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                      >
+                        <input
+                          type="radio"
+                          name="course-schedule-mode"
+                          checked={form.scheduleMode === type}
+                          onChange={() => {
+                            if (type === "self_scheduled") {
+                              setForm((current) => ({
+                                ...current,
+                                scheduleMode: type,
+                                sessionDate: "",
+                                sessionStartTime: "",
+                                sessionEndTime: "",
+                                sessionTime: "",
+                              }));
+                              return;
+                            }
+                            updateField("scheduleMode", type as SessionType);
+                          }}
+                          className="h-4 w-4 accent-gold"
+                        />
+                        {SESSION_TYPE_LABELS[type]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {!isSelfScheduled ? (
+                <>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">上課日期</label>
+                    <input
+                      type="date"
+                      value={form.sessionDate}
+                      onChange={(e) => updateField("sessionDate", e.target.value)}
+                      className={inputClass}
+                      required={isCourseActivity}
+                    />
+                  </div>
+                  {isCourseActivity ? (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">開始時間</label>
+                        <input
+                          value={form.sessionStartTime}
+                          onChange={(e) => updateField("sessionStartTime", e.target.value)}
+                          placeholder="14:00"
+                          className={inputClass}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-foreground">結束時間</label>
+                        <input
+                          value={form.sessionEndTime}
+                          onChange={(e) => updateField("sessionEndTime", e.target.value)}
+                          placeholder="15:30"
+                          className={inputClass}
+                          required
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium text-foreground">上課時間</label>
+                      <input
+                        value={form.sessionTime}
+                        onChange={(e) => updateField("sessionTime", e.target.value)}
+                        placeholder="例如 14:00–15:00"
+                        className={inputClass}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="sm:col-span-2 rounded-xl bg-surface px-4 py-3 text-sm text-muted">
+                  此課程採自行預約，報名完成後由老師與學員協調上課日期與時間。
+                </div>
+              )}
+
               <div>
                 <label className="text-sm font-medium text-foreground">名額</label>
                 <input
