@@ -2,6 +2,11 @@
 
 import { motion } from "framer-motion";
 import { CourseCoverImage } from "@/components/courses/CourseCoverImage";
+import {
+  ACTIVITY_DETAIL_HERO_IMAGE_CLASS,
+  ACTIVITY_DETAIL_HERO_IMAGE_SIZES,
+  ActivityDetailHeroFrame,
+} from "@/components/courses/ActivityDetailHeroFrame";
 import { ActivityCta } from "@/components/courses/ActivityCta";
 import { formatFee, formatSessionDate } from "@/lib/admin/format";
 import {
@@ -35,15 +40,16 @@ export function CourseRegistrationHero({
 
   return (
     <section className="relative">
-      <div className="relative aspect-[4/3] w-full overflow-hidden sm:aspect-[21/9]">
+      <ActivityDetailHeroFrame>
         <CourseCoverImage
           src={course.coverImage}
           alt={course.title}
           priority
-          sizes="100vw"
+          sizes={ACTIVITY_DETAIL_HERO_IMAGE_SIZES}
+          className={ACTIVITY_DETAIL_HERO_IMAGE_CLASS}
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/25 to-black/10" />
-      </div>
+      </ActivityDetailHeroFrame>
 
       <div className="absolute inset-x-0 bottom-0 mx-auto max-w-3xl px-5 pb-10 pt-20 text-center sm:pb-14 md:px-8">
         <motion.div
