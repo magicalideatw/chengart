@@ -2,7 +2,11 @@ import { getActiveAnnouncements } from "@/lib/announcements/queries";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 
-export async function NewsSection() {
+export async function NewsSection({
+  headingLevel = "h2",
+}: {
+  headingLevel?: "h1" | "h2";
+} = {}) {
   const announcements = await getActiveAnnouncements();
 
   if (announcements.length === 0) {
@@ -17,6 +21,7 @@ export async function NewsSection() {
             label="News"
             title="最新消息"
             description="掌握晟心誠藝劇團的最新動態與重要公告。"
+            headingLevel={headingLevel}
           />
         </FadeIn>
 

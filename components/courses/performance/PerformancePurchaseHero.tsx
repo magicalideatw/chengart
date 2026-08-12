@@ -25,7 +25,7 @@ export function PerformancePurchaseHero({
       <ActivityDetailHeroFrame>
         <CourseCoverImage
           src={course.coverImage}
-          alt={course.title}
+          alt={`${course.title}演出海報`}
           fill={false}
           width={1400}
           height={900}

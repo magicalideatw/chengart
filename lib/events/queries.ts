@@ -109,3 +109,15 @@ export async function getEventSlugs(): Promise<string[]> {
   }
   return getLegacyEventSlugs();
 }
+
+export async function getPublicEvents(): Promise<EventHomepageItem[]> {
+  const events = await fetchAllEvents();
+
+  if (!events) {
+    return getLegacyHomepageEventsFiltered();
+  }
+
+  return events
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(toHomepageItem);
+}

@@ -4,7 +4,13 @@ import Image from "next/image";
 import { aboutContent } from "@/lib/data/about";
 import { FadeIn } from "@/components/ui/FadeIn";
 
-export function AboutSection() {
+export function AboutSection({
+  headingLevel = "h2",
+}: {
+  headingLevel?: "h1" | "h2";
+}) {
+  const HeadingTag = headingLevel;
+
   return (
     <section id="about" className="bg-surface py-16 sm:py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-5 md:px-8">
@@ -26,9 +32,9 @@ export function AboutSection() {
               <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-gold">
                 {aboutContent.label}
               </p>
-              <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-foreground sm:mt-5 sm:text-4xl md:text-5xl">
+              <HeadingTag className="mt-4 font-display text-3xl font-semibold tracking-tight text-foreground sm:mt-5 sm:text-4xl md:text-5xl">
                 {aboutContent.title}
-              </h2>
+              </HeadingTag>
               <p className="mt-5 text-base leading-relaxed text-muted sm:mt-6 sm:text-lg sm:leading-8">
                 {aboutContent.subtitle}
               </p>

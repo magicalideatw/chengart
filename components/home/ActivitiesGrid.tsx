@@ -34,7 +34,7 @@ export function ActivitiesGrid({ events }: ActivitiesGridProps) {
                 <div className="relative aspect-[4/3] overflow-hidden">
                   <Image
                     src={item.coverImage}
-                    alt={item.title}
+                    alt={`${item.title}活動封面`}
                     fill
                     className="object-cover transition duration-500 group-hover:scale-105"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

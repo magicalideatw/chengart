@@ -33,7 +33,7 @@ export function CourseCard({ course, index }: CourseCardProps) {
       <div className="relative aspect-[4/3] overflow-hidden bg-surface">
         <CourseCoverImage
           src={course.coverImage}
-          alt={course.title}
+          alt={`${course.title}｜${course.category}課程`}
           className="object-cover object-[center_top] transition duration-700 group-hover:scale-[1.03]"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
         />

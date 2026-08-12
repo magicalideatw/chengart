@@ -116,19 +116,19 @@ export const spaceRentalContent = {
     images: [
       {
         src: "/images/space/space-1.jpg",
-        alt: "二階藝術空間照片 1",
+        alt: "二階藝術空間室內環境照片",
       },
       {
         src: "/images/space/space-2.jpg",
-        alt: "二階藝術空間照片 2",
+        alt: "二階藝術空間排練與課程使用情境",
       },
       {
         src: "/images/space/space-3.jpg",
-        alt: "二階藝術空間照片 3",
+        alt: "二階藝術空間工作坊活動場域",
       },
       {
         src: "/images/space/space-4.jpg",
-        alt: "二階藝術空間照片 4",
+        alt: "二階藝術空間小型講座與聚會環境",
       },
     ],
   },

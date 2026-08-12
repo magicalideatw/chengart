@@ -11,10 +11,12 @@ export const dynamic = "force-dynamic";
 
 type ActivityCoursesSectionProps = {
   activityType: HomeActivityType;
+  headingLevel?: "h1" | "h2";
 };
 
 export async function ActivityCoursesSection({
   activityType,
+  headingLevel = "h2",
 }: ActivityCoursesSectionProps) {
   const section = HOME_ACTIVITY_SECTIONS[activityType];
   const courses = await getPublicCoursesByActivityType(activityType);
@@ -34,6 +36,7 @@ export async function ActivityCoursesSection({
             label={section.label}
             title={section.title}
             description={section.description}
+            headingLevel={headingLevel}
           />
         </FadeIn>
 

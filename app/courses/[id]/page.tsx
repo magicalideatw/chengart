@@ -16,6 +16,7 @@ import {
   buildPerformanceEventJsonLd,
 } from "@/lib/seo/json-ld";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import { truncateDescription } from "@/lib/seo/format";
 import { getActiveTicketTypesByCourseId } from "@/lib/ticket-types/queries";
 import { getVisibleCourseMediaByCourseId } from "@/lib/media/queries";
 import { getOpenSessionsByCourseId } from "@/lib/sessions/queries";
@@ -39,17 +40,26 @@ export async function generateMetadata({
   const pagePath = `/courses/${course.id}`;
   const coverImage = getCourseCoverAbsoluteUrl(course.coverImage, siteConfig.url);
   const isPerformance = course.activityType === "performance";
+  const description = isPerformance
+    ? truncateDescription(
+        course.description ||
+          `查看「${course.title}」演出資訊、場次與購票方式。`,
+      )
+    : truncateDescription(
+        course.description ||
+          `報名「${course.title}」${course.category}課程，了解課程內容、費用與上課資訊。`,
+      );
 
   return buildPageMetadata({
-    title: course.title,
-    description: isPerformance
-      ? `查看「${course.title}」演出資訊、場次與購票方式。`
-      : `報名「${course.title}」藝術課程，了解課程內容、費用與上課資訊。`,
+    title: isPerformance
+      ? `${course.title}｜演出資訊與購票`
+      : `${course.title}｜${course.category}課程報名`,
+    description,
     path: pagePath,
     image: coverImage,
     imageAlt: isPerformance
-      ? `${course.title} 演出海報`
-      : `${course.title} 課程封面`,
+      ? `${course.title}演出海報`
+      : `${course.title}｜${course.category}課程封面`,
   });
 }
 
@@ -63,10 +73,6 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
 
   const pageUrl = new URL(`/courses/${course.id}`, siteConfig.url).toString();
   const coverImage = getCourseCoverAbsoluteUrl(course.coverImage, siteConfig.url);
-  const structuredData =
-    course.activityType === "performance"
-      ? buildPerformanceEventJsonLd(course, pageUrl, coverImage)
-      : buildCourseJsonLd(course, pageUrl);
 
   if (course.activityType === "performance") {
     const [ticketTypes, sessions, mediaItems] = await Promise.all([
@@ -74,6 +80,13 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
       getOpenSessionsByCourseId(course.id),
       getVisibleCourseMediaByCourseId(course.id),
     ]);
+    const structuredData = buildPerformanceEventJsonLd({
+      course,
+      pageUrl,
+      imageUrl: coverImage,
+      sessions,
+      ticketTypes,
+    });
 
     return (
       <>
@@ -92,7 +105,7 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
     );
   }
 
-  const [plan, hasPromoCodes, mediaItems] = await Promise.all([
+  const [plan, hasPromoCodes, mediaItems, sessions] = await Promise.all([
     getCourseRegistrationPlan(course.id).then(
       (value) =>
         value ?? {
@@ -108,7 +121,13 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
     ),
     courseHasPromoCodes(course.id),
     getVisibleCourseMediaByCourseId(course.id),
+    getOpenSessionsByCourseId(course.id),
   ]);
+  const structuredData = buildCourseJsonLd({
+    course,
+    pageUrl,
+    sessions,
+  });
 
   return (
     <>

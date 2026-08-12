@@ -11,7 +11,11 @@ const facebookUrl = siteConfig.facebook;
 const linkClass =
   "mt-2 flex items-center gap-3 break-all text-sm text-muted transition hover:text-foreground";
 
-export function ContactSection() {
+export function ContactSection({
+  headingLevel = "h2",
+}: {
+  headingLevel?: "h1" | "h2";
+}) {
   const hasEmail = Boolean(contactEmail?.trim());
   const hasInstagram = Boolean(instagramUrl?.trim());
   const hasFacebook = Boolean(facebookUrl?.trim());
@@ -25,6 +29,7 @@ export function ContactSection() {
             title="聯絡我們"
             description="有任何演出邀約、課程合作、活動合作或其他問題，歡迎與我們聯繫，我們很樂意為您服務。"
             align="center"
+            headingLevel={headingLevel}
           />
         </FadeIn>
 

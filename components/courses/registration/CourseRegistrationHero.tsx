@@ -43,7 +43,11 @@ export function CourseRegistrationHero({
       <ActivityDetailHeroFrame>
         <CourseCoverImage
           src={course.coverImage}
-          alt={course.title}
+          alt={
+            course.activityType === "performance"
+              ? `${course.title}演出海報`
+              : `${course.title}｜${course.category}課程封面`
+          }
           fill={false}
           width={1400}
           height={900}

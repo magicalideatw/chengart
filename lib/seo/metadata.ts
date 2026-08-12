@@ -9,6 +9,8 @@ export type PageMetadataInput = {
   image?: string;
   imageAlt?: string;
   ogType?: "website" | "article";
+  /** When true, bypasses the root title template. */
+  absoluteTitle?: boolean;
   robots?: Metadata["robots"];
 };
 
@@ -26,7 +28,9 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
   const imageAlt = input.imageAlt ?? SEO_DEFAULT_OG_IMAGE.alt;
 
   return {
-    title: input.title,
+    title: input.absoluteTitle
+      ? { absolute: input.title }
+      : input.title,
     description: input.description,
     alternates: {
       canonical,
@@ -56,6 +60,11 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     ...(input.robots ? { robots: input.robots } : {}),
   };
 }
+
+export const NOINDEX_ROBOTS: Metadata["robots"] = {
+  index: false,
+  follow: false,
+};
 
 export function toAbsoluteUrl(value: string, siteUrl = siteConfig.url): string {
   if (value.startsWith("http://") || value.startsWith("https://")) {
