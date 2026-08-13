@@ -1,4 +1,4 @@
-export const PAYMENT_METHODS = ["free", "ecpay", "bank_transfer"] as const;
+export const PAYMENT_METHODS = ["free", "ecpay", "bank_transfer", "on_site"] as const;
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
@@ -20,6 +20,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   free: "免費",
   ecpay: "信用卡（ECPay）",
   bank_transfer: "銀行轉帳",
+  on_site: "現場繳費",
 };
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
@@ -55,12 +56,12 @@ export function parsePaidPaymentMethods(value: unknown): PaidPaymentMethod[] {
   return methods.length > 0 ? methods : ["ecpay"];
 }
 
-export function resolveAvailablePaymentMethods(input: {
+export function resolveOnlinePaymentMethods(input: {
   allowedMethods: PaymentMethod[];
   totalAmount: number;
-}): PaymentMethod[] {
+}): PaidPaymentMethod[] {
   if (input.totalAmount <= 0) {
-    return ["free"];
+    return [];
   }
 
   return input.allowedMethods.filter(
@@ -69,12 +70,35 @@ export function resolveAvailablePaymentMethods(input: {
   );
 }
 
+export function resolveAvailablePaymentMethods(input: {
+  allowedMethods: PaymentMethod[];
+  totalAmount: number;
+}): PaymentMethod[] {
+  if (input.totalAmount <= 0) {
+    return ["free"];
+  }
+
+  return resolveOnlinePaymentMethods(input);
+}
+
 export function resolveDefaultPaymentMethod(
   availableMethods: PaymentMethod[],
 ): PaymentMethod | null {
   if (availableMethods.length === 0) return null;
   if (availableMethods.includes("free")) return "free";
   return availableMethods[0];
+}
+
+export function resolveDefaultCheckoutPaymentMethod(input: {
+  allowedMethods: PaymentMethod[];
+  totalAmount: number;
+}): PaymentMethod | null {
+  if (input.totalAmount <= 0) {
+    return "free";
+  }
+
+  const onlineMethods = resolveOnlinePaymentMethods(input);
+  return onlineMethods[0] ?? "on_site";
 }
 
 export function getPaymentMethodLabel(method: string | null | undefined): string {
@@ -90,6 +114,9 @@ export function getPaymentMethodCheckoutLabel(method: PaymentMethod): string {
   if (method === "ecpay") {
     return "信用卡";
   }
+  if (method === "on_site") {
+    return "現場繳費";
+  }
   return PAYMENT_METHOD_LABELS[method];
 }
 
@@ -100,6 +127,10 @@ export function resolvePaymentMethodDisplayLabel(input: {
 }): string {
   if (input.totalAmount <= 0) {
     return PAYMENT_METHOD_LABELS.free;
+  }
+
+  if (input.paymentMethod === "on_site") {
+    return PAYMENT_METHOD_LABELS.on_site;
   }
 
   if (
@@ -120,6 +151,10 @@ export function resolveConfirmStepSubtitle(input: {
     return "確認無誤後，將直接完成報名。";
   }
 
+  if (input.paymentMethod === "on_site") {
+    return "確認無誤後，將直接完成報名，請於上課／活動當日現場繳費。";
+  }
+
   if (input.paymentMethod === "bank_transfer") {
     return "確認無誤後，將顯示銀行匯款資訊。";
   }
@@ -137,4 +172,10 @@ export function getPaymentStatusLabel(status: string | null | undefined): string
     return PAYMENT_STATUS_LABELS[status as PaymentStatus];
   }
   return status;
+}
+
+export function isOnlinePaymentMethod(
+  method: PaymentMethod | null | undefined,
+): method is PaidPaymentMethod {
+  return method === "ecpay" || method === "bank_transfer";
 }

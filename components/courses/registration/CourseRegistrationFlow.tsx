@@ -16,8 +16,7 @@ import {
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
-  resolveAvailablePaymentMethods,
-  resolveDefaultPaymentMethod,
+  resolveDefaultCheckoutPaymentMethod,
 } from "@/lib/payment/types";
 import {
   calculateRegistrationPricing,
@@ -181,18 +180,13 @@ export function CourseRegistrationFlow({
 
   const totalAmount = pricing.total;
 
-  const availablePaymentMethods = useMemo(
+  const defaultPaymentMethod = useMemo(
     () =>
-      resolveAvailablePaymentMethods({
+      resolveDefaultCheckoutPaymentMethod({
         allowedMethods: course.allowedPaymentMethods,
         totalAmount,
       }),
     [course.allowedPaymentMethods, totalAmount],
-  );
-
-  const defaultPaymentMethod = useMemo(
-    () => resolveDefaultPaymentMethod(availablePaymentMethods),
-    [availablePaymentMethods],
   );
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
@@ -316,6 +310,7 @@ export function CourseRegistrationFlow({
   const submitLabel = useMemo(() => {
     if (!activePaymentMethod) return "確認報名";
     if (activePaymentMethod === "free") return "完成報名";
+    if (activePaymentMethod === "on_site") return "確認報名";
     if (activePaymentMethod === "bank_transfer") return "確認報名並查看匯款資訊";
     return "前往信用卡付款";
   }, [activePaymentMethod]);
@@ -508,7 +503,7 @@ export function CourseRegistrationFlow({
 
                       <div className="mt-6">
                         <PaymentMethodSelector
-                          availableMethods={availablePaymentMethods}
+                          allowedMethods={course.allowedPaymentMethods}
                           value={activePaymentMethod}
                           onChange={setPaymentMethod}
                           totalAmount={totalAmount}

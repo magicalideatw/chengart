@@ -23,6 +23,7 @@ export default async function PaymentSuccessPage({
   const order = orderId ? await getOrderById(orderId) : null;
   const isPendingView = pending === "1" && order && !isOrderPaid(order);
   const isFree = order?.payment_method === "free";
+  const isOnSite = order?.payment_method === "on_site";
   const isBankTransferPending =
     isPendingView && order?.payment_method === "bank_transfer";
 
@@ -50,7 +51,7 @@ export default async function PaymentSuccessPage({
         <h1 className="mt-2 font-display text-3xl font-semibold text-foreground">
           {isPendingView
             ? "訂單已建立"
-            : isFree
+            : isFree || isOnSite
               ? "報名成功"
               : "付款成功"}
         </h1>
@@ -59,9 +60,11 @@ export default async function PaymentSuccessPage({
             ? isBankTransferPending && transferDeadlineDays
               ? `您的訂單已建立，請於 ${transferDeadlineDays} 天內完成匯款。管理員確認收款後，報名才會正式生效。`
               : "您的訂單已建立，請依指示完成匯款。管理員確認收款後，報名才會正式生效。"
-            : isFree
-              ? "您的報名已完成，確認信將寄送至您的 Email。"
-              : "感謝您的報名，我們已收到您的付款，確認信將寄送至您的 Email。"}
+            : isOnSite
+              ? "已選擇現場繳費，請於活動／課程當日現場完成付款。"
+              : isFree
+                ? "您的報名已完成，確認信將寄送至您的 Email。"
+                : "感謝您的報名，我們已收到您的付款，確認信將寄送至您的 Email。"}
         </p>
 
         {order && (

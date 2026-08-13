@@ -32,6 +32,10 @@ export default async function PaymentCheckoutPage({ params }: CheckoutPageProps)
     redirect(`/payment/success?orderId=${order.id}`);
   }
 
+  if (order.payment_method === "on_site") {
+    redirect(`/payment/success?orderId=${order.id}`);
+  }
+
   if (order.payment_status !== "pending" && order.status !== "pending") {
     redirect(`/payment/fail?orderId=${order.id}`);
   }

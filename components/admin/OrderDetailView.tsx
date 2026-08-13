@@ -10,6 +10,7 @@ import { ConfirmBankTransferModal } from "@/components/admin/ConfirmBankTransfer
 import { ManualConfirmBankTransferModal } from "@/components/admin/ManualConfirmBankTransferModal";
 import {
   canConfirmBankTransferPayment,
+  canConfirmOnSitePayment,
   canManualConfirmBankTransferPayment,
   formatTransferDateDisplay,
   formatTransferTimeDisplay,
@@ -21,6 +22,7 @@ import type { AdminOrderDetail } from "@/lib/admin/order-detail";
 import {
   cancelAdminOrder,
   confirmBankTransferPayment,
+  confirmOnSitePayment,
   markAdminOrderRefunded,
   resendAdminPaymentEmail,
   resendAdminRegistrationEmail,
@@ -86,6 +88,7 @@ export function OrderDetailView({ detail, canMutate }: OrderDetailViewProps) {
     : order;
 
   const canConfirmTransfer = canConfirmBankTransferPayment(displayOrder);
+  const canConfirmOnSite = canConfirmOnSitePayment(displayOrder);
   const canManualConfirm = canManualConfirmBankTransferPayment(displayOrder);
 
   const runAction = (
@@ -149,6 +152,22 @@ export function OrderDetailView({ detail, canMutate }: OrderDetailViewProps) {
 
           {canMutate ? (
             <div className="flex flex-wrap gap-2">
+              {canConfirmOnSite ? (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    if (!window.confirm("確認此訂單已完成現場收款？")) return;
+                    runAction(() => confirmOnSitePayment(order.id), () => {
+                      setIsPaidLocally(true);
+                      setToastVisible(true);
+                    });
+                  }}
+                  className="rounded-full bg-gold px-4 py-2 text-sm font-medium text-white transition hover:bg-gold/90 disabled:opacity-50"
+                >
+                  {isPending ? "處理中..." : "確認現場收款"}
+                </button>
+              ) : null}
               {canConfirmTransfer ? (
                 <button
                   type="button"

@@ -13,6 +13,21 @@ export function isBankTransferOrder(
   return order.payment_method === "bank_transfer";
 }
 
+export function isOnSiteOrder(
+  order: Pick<OrderRecord, "payment_method">,
+): boolean {
+  return order.payment_method === "on_site";
+}
+
+export function canConfirmOnSitePayment(
+  order: Pick<OrderRecord, "payment_method" | "payment_status">,
+): boolean {
+  return (
+    order.payment_method === "on_site" &&
+    order.payment_status === "pending"
+  );
+}
+
 export function isWaitingCustomerTransfer(
   order: Pick<
     OrderRecord,

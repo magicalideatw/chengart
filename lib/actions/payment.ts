@@ -8,7 +8,7 @@ import {
   notifyParentBankTransferPending,
 } from "@/lib/email/dispatch";
 import { createOrder, getOrderById } from "@/lib/orders/queries";
-import { fulfillOrderById } from "@/lib/payment/fulfill-order";
+import { fulfillOnSiteOrderById, fulfillOrderById } from "@/lib/payment/fulfill-order";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
   isPaymentMethod,
@@ -49,6 +49,7 @@ export type CreateRegistrationOrderResult =
 function getRedirectPath(orderId: string, paymentMethod: PaymentMethod): string {
   switch (paymentMethod) {
     case "free":
+    case "on_site":
       return `/payment/success?orderId=${orderId}`;
     case "bank_transfer":
       return `/payment/bank-transfer/${orderId}`;
@@ -211,7 +212,11 @@ export async function createRegistrationOrder(
     totalAmount: amount,
   });
 
-  if (!availableMethods.includes(input.paymentMethod)) {
+  if (input.paymentMethod === "on_site") {
+    if (amount <= 0) {
+      return { success: false, error: "免費課程不需選擇現場繳費" };
+    }
+  } else if (!availableMethods.includes(input.paymentMethod)) {
     return { success: false, error: "此課程不支援所選付款方式" };
   }
 
@@ -283,6 +288,20 @@ export async function createRegistrationOrder(
       orderId: order.id,
       redirectPath: getRedirectPath(order.id, "free"),
       paymentMethod: "free",
+    };
+  }
+
+  if (input.paymentMethod === "on_site") {
+    const fulfillment = await fulfillOnSiteOrderById(order.id);
+    if (!fulfillment.success) {
+      return { success: false, error: fulfillment.error };
+    }
+
+    return {
+      success: true,
+      orderId: order.id,
+      redirectPath: getRedirectPath(order.id, "on_site"),
+      paymentMethod: "on_site",
     };
   }
 

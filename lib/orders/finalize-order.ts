@@ -11,7 +11,7 @@ import {
 import { createOrder, getOrderById } from "@/lib/orders/queries";
 import type { OrderFormData } from "@/lib/orders/order-form-data";
 import type { OrderRecord } from "@/lib/orders/types";
-import { fulfillOrderById } from "@/lib/payment/fulfill-order";
+import { fulfillOnSiteOrderById, fulfillOrderById } from "@/lib/payment/fulfill-order";
 import type { PaymentMethod, PaymentStatus } from "@/lib/payment/types";
 import { resolveAvailablePaymentMethods } from "@/lib/payment/types";
 import type { PricingSnapshot } from "@/lib/pricing/types";
@@ -26,6 +26,7 @@ export function getOrderRedirectPath(
 ): string {
   switch (paymentMethod) {
     case "free":
+    case "on_site":
       return `/payment/success?orderId=${orderId}`;
     case "bank_transfer":
       return `/payment/bank-transfer/${orderId}`;
@@ -40,6 +41,13 @@ export function assertOrderPaymentMethod(input: {
   totalAmount: number;
   paymentMethod: PaymentMethod;
 }): string | null {
+  if (input.paymentMethod === "on_site") {
+    if (input.totalAmount <= 0) {
+      return "免費活動不需選擇現場繳費";
+    }
+    return null;
+  }
+
   const availableMethods = resolveAvailablePaymentMethods({
     allowedMethods: input.course.allowedPaymentMethods,
     totalAmount: input.totalAmount,
@@ -139,6 +147,20 @@ export async function finalizeCreatedOrder(input: {
       orderId: order.id,
       redirectPath: getOrderRedirectPath(order.id, "free"),
       paymentMethod: "free",
+    };
+  }
+
+  if (input.paymentMethod === "on_site") {
+    const fulfillment = await fulfillOnSiteOrderById(order.id);
+    if (!fulfillment.success) {
+      return { success: false, error: fulfillment.error };
+    }
+
+    return {
+      success: true,
+      orderId: order.id,
+      redirectPath: getOrderRedirectPath(order.id, "on_site"),
+      paymentMethod: "on_site",
     };
   }
 

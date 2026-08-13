@@ -412,6 +412,7 @@ async function completeOrderAfterFulfillment(input: {
   order: OrderRecord;
   paymentMethod: PaymentMethod;
   ecpayTradeNo?: string | null;
+  deferPayment?: boolean;
 }): Promise<FulfillOrderResult> {
   const isPerformance = isPerformanceOrderFormData(input.order.form_data);
   console.log(
@@ -473,6 +474,48 @@ async function completeOrderAfterFulfillment(input: {
       updated: undefined,
     });
     return { success: false, error: "建立報名失敗" };
+  }
+
+  if (input.deferPayment) {
+    const updated = await updateOrderStatus(input.order.id, {
+      status: "pending",
+      order_status: "completed",
+      payment_status: "pending",
+      payment_method: input.paymentMethod,
+      registration_id: registrationId,
+      paid_at: null,
+    });
+
+    if (!updated) {
+      return { success: false, error: "更新訂單失敗" };
+    }
+
+    revalidatePath(`/courses/${input.order.course_id}`);
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/registrations");
+
+    try {
+      const pendingOrder: OrderRecord = {
+        ...input.order,
+        order_status: "completed",
+        payment_status: "pending",
+        status: "pending",
+        payment_method: input.paymentMethod,
+        registration_id: registrationId,
+        paid_at: null,
+      };
+
+      await notifyParentRegistrationSuccess({
+        order: pendingOrder,
+        course,
+      });
+    } catch (error) {
+      console.error("On-site registration email notification failed:", error);
+    }
+
+    return { success: true, alreadyPaid: false };
   }
 
   const paidAt = new Date().toISOString();
@@ -583,6 +626,52 @@ async function orderHasRegistrations(orderId: string): Promise<boolean> {
   }
 
   return (count ?? 0) > 0;
+}
+
+export async function fulfillOnSiteOrderById(
+  orderId: string,
+): Promise<FulfillOrderResult> {
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    return { success: false, error: "找不到訂單" };
+  }
+
+  if (order.payment_method !== "on_site") {
+    return { success: false, error: "此訂單不是現場繳費" };
+  }
+
+  if (isOrderPaid(order)) {
+    return { success: true, alreadyPaid: true };
+  }
+
+  if (isPerformanceOrderFormData(order.form_data)) {
+    return { success: true, alreadyPaid: false };
+  }
+
+  const hasRegistrations = await orderHasRegistrations(order.id);
+  if (hasRegistrations) {
+    return { success: true, alreadyPaid: false };
+  }
+
+  const course = await getCourseWithEnrollment(order.course_id);
+  if (!course) {
+    return { success: false, error: "找不到課程" };
+  }
+
+  if (!course.isOpen) {
+    return { success: false, error: "課程已關閉" };
+  }
+
+  if (!isBeforeRegistrationDeadline(course)) {
+    return { success: false, error: "此課程報名已截止" };
+  }
+
+  return completeOrderAfterFulfillment({
+    order,
+    paymentMethod: "on_site",
+    deferPayment: true,
+  });
 }
 
 export async function fulfillOrderById(orderId: string): Promise<FulfillOrderResult> {

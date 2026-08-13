@@ -7,8 +7,7 @@ import { createPerformanceOrder } from "@/lib/actions/performance-order";
 import type { CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
 import {
-  resolveAvailablePaymentMethods,
-  resolveDefaultPaymentMethod,
+  resolveDefaultCheckoutPaymentMethod,
 } from "@/lib/payment/types";
 import {
   calculateSessionPurchaseSummary,
@@ -105,30 +104,27 @@ export function PerformancePurchaseForm({
   const showCheckoutDetails =
     hasValidSelection && (!requiresSessionSelection || selectedSessionId);
 
-  const availablePaymentMethods = useMemo(() => {
-    if (!isPaid) {
-      return ["free"] as PaymentMethod[];
-    }
-
-    if (!hasValidSelection) {
-      return [];
-    }
-
-    return resolveAvailablePaymentMethods({
-      allowedMethods: course.allowedPaymentMethods,
-      totalAmount: summary.totalAmount,
-    });
-  }, [
-    course.allowedPaymentMethods,
-    hasValidSelection,
-    isPaid,
-    summary.totalAmount,
-  ]);
+  const defaultPaymentMethod = useMemo(
+    () =>
+      isPaid && hasValidSelection
+        ? resolveDefaultCheckoutPaymentMethod({
+            allowedMethods: course.allowedPaymentMethods,
+            totalAmount: summary.totalAmount,
+          })
+        : isPaid
+          ? null
+          : ("free" as PaymentMethod),
+    [course.allowedPaymentMethods, hasValidSelection, isPaid, summary.totalAmount],
+  );
 
   const resolvedPaymentMethod =
-    paymentMethod && availablePaymentMethods.includes(paymentMethod)
+    paymentMethod &&
+    (paymentMethod === "on_site" ||
+      paymentMethod === "free" ||
+      paymentMethod === "ecpay" ||
+      paymentMethod === "bank_transfer")
       ? paymentMethod
-      : resolveDefaultPaymentMethod(availablePaymentMethods);
+      : defaultPaymentMethod;
 
   const updateTicketQuantity = (ticketTypeId: string, delta: number) => {
     setQuantities((current) => {
@@ -405,7 +401,7 @@ export function PerformancePurchaseForm({
       ) : usesSessionPurchase && selectedSession ? (
         isPaidSession(selectedSession) ? (
           <PaymentMethodSelector
-            availableMethods={availablePaymentMethods}
+            allowedMethods={course.allowedPaymentMethods}
             value={resolvedPaymentMethod}
             onChange={setPaymentMethod}
             totalAmount={summary.totalAmount}
@@ -431,7 +427,7 @@ export function PerformancePurchaseForm({
         </div>
       ) : (
         <PaymentMethodSelector
-          availableMethods={availablePaymentMethods}
+          allowedMethods={course.allowedPaymentMethods}
           value={resolvedPaymentMethod}
           onChange={setPaymentMethod}
           totalAmount={summary.totalAmount}

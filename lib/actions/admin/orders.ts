@@ -11,8 +11,12 @@ import {
   notifyParentRegistrationSuccess,
 } from "@/lib/email/dispatch";
 import { getOrderById, updateOrderStatus } from "@/lib/orders/queries";
+import { isPerformanceOrderFormData } from "@/lib/orders/order-form-data";
 import { isOrderPaid } from "@/lib/orders/types";
-import { fulfillOrderById } from "@/lib/payment/fulfill-order";
+import {
+  fulfillOnSiteOrderById,
+  fulfillOrderById,
+} from "@/lib/payment/fulfill-order";
 
 function revalidateOrderPaths(orderId: string, courseId?: string) {
   revalidatePath("/admin/orders");
@@ -23,6 +27,69 @@ function revalidateOrderPaths(orderId: string, courseId?: string) {
   if (courseId) {
     revalidatePath(`/courses/${courseId}`);
   }
+}
+
+export async function confirmOnSitePayment(
+  orderId: string,
+): Promise<AdminActionResult> {
+  await requireAuthenticatedUser();
+
+  const order = await getOrderById(orderId);
+  if (!order) {
+    return { success: false, error: "找不到訂單" };
+  }
+
+  if (isOrderPaid(order)) {
+    return { success: true };
+  }
+
+  if (order.payment_method !== "on_site") {
+    return { success: false, error: "此訂單不是現場繳費" };
+  }
+
+  if (order.payment_status !== "pending") {
+    return { success: false, error: "此訂單狀態不可確認收款" };
+  }
+
+  const course = await getCourseWithEnrollment(order.course_id);
+  if (!course) {
+    return { success: false, error: "找不到課程" };
+  }
+
+  if (isPerformanceOrderFormData(order.form_data)) {
+    const result = await fulfillOrderById(order.id);
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    revalidateOrderPaths(order.id, order.course_id);
+    return { success: true };
+  }
+
+  const fulfillment = await fulfillOnSiteOrderById(order.id);
+  if (!fulfillment.success) {
+    return { success: false, error: fulfillment.error };
+  }
+
+  const paidAt = new Date().toISOString();
+  const updated = await updateOrderStatus(order.id, {
+    status: "paid",
+    order_status: "completed",
+    payment_status: "paid",
+    paid_at: paidAt,
+  });
+
+  if (!updated) {
+    return { success: false, error: "更新訂單失敗" };
+  }
+
+  const paidOrder = await getOrderById(order.id);
+  if (paidOrder) {
+    await notifyParentPaymentConfirmed({ order: paidOrder, course });
+  }
+
+  revalidateOrderPaths(order.id, order.course_id);
+  return { success: true };
 }
 
 export async function confirmBankTransferPayment(
@@ -166,6 +233,19 @@ export async function resendAdminPaymentEmail(
     return {
       success: false,
       error: "信用卡待付款訂單請由用戶重新前往付款頁完成付款",
+    };
+  }
+
+  if (order.payment_method === "on_site") {
+    if (order.payment_status === "paid") {
+      await notifyParentPaymentConfirmed({ order, course });
+      revalidateOrderPaths(orderId, order.course_id);
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: "現場繳費訂單請待現場收款後，由管理員確認付款",
     };
   }
 
