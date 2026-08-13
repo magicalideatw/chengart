@@ -12,6 +12,7 @@ import { getDefaultActionButtonText } from "@/lib/courses/participation-method";
 import { mapSessionToDb } from "@/lib/sessions/mappers";
 import { sessionToFormInput } from "@/lib/sessions/mappers";
 import { getSessionsByClassId } from "@/lib/sessions/queries";
+import type { CheckoutPaymentMethod } from "@/lib/payment/types";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
 import { copyCourseMedia } from "@/lib/media/queries";
 import { adminCourseSchema } from "@/lib/validation/admin-course-schema";
@@ -41,8 +42,8 @@ function courseToFormInput(course: Course): CourseFormInput {
     coverImage: course.coverImage,
     isOpen: course.isOpen,
     allowedPaymentMethods: course.allowedPaymentMethods.filter(
-      (method): method is "ecpay" | "bank_transfer" =>
-        method === "ecpay" || method === "bank_transfer",
+      (method): method is CheckoutPaymentMethod =>
+        method === "ecpay" || method === "bank_transfer" || method === "on_site",
     ),
     registrationMode: course.registrationMode,
     pricePerStudent: course.pricePerStudent,

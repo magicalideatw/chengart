@@ -37,9 +37,9 @@ import {
   type ParticipationMethod,
 } from "@/lib/courses/participation-method";
 import {
-  PAID_PAYMENT_METHODS,
+  CHECKOUT_PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
-  type PaidPaymentMethod,
+  type CheckoutPaymentMethod,
 } from "@/lib/payment/types";
 import type { PromoCodeRecord } from "@/lib/pricing/types";
 import type { TicketTypeRecord } from "@/lib/ticket-types/types";
@@ -138,8 +138,8 @@ function courseToFormInput(course: Course): CourseFormInput {
     capacity: course.capacity,
     coverImage: course.coverImage,
     allowedPaymentMethods: course.allowedPaymentMethods.filter(
-      (method): method is PaidPaymentMethod =>
-        method === "ecpay" || method === "bank_transfer",
+      (method): method is CheckoutPaymentMethod =>
+        method === "ecpay" || method === "bank_transfer" || method === "on_site",
     ),
     registrationMode: course.registrationMode,
     pricePerStudent: course.pricePerStudent,
@@ -186,7 +186,7 @@ export function CourseFormModal({
 
   const paidMethodOptions = useMemo(
     () =>
-      PAID_PAYMENT_METHODS.map((method) => ({
+      CHECKOUT_PAYMENT_METHODS.map((method) => ({
         method,
         label: PAYMENT_METHOD_LABELS[method],
       })),
@@ -655,7 +655,7 @@ export function CourseFormModal({
                                 );
                             return {
                               ...current,
-                              allowedPaymentMethods: next as PaidPaymentMethod[],
+                              allowedPaymentMethods: next as CheckoutPaymentMethod[],
                             };
                           });
                         }}

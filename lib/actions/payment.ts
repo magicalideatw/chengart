@@ -216,6 +216,9 @@ export async function createRegistrationOrder(
     if (amount <= 0) {
       return { success: false, error: "免費課程不需選擇現場繳費" };
     }
+    if (!course.allowedPaymentMethods.includes("on_site")) {
+      return { success: false, error: "此課程不支援現場繳費" };
+    }
   } else if (!availableMethods.includes(input.paymentMethod)) {
     return { success: false, error: "此課程不支援所選付款方式" };
   }

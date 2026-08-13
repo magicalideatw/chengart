@@ -2,7 +2,7 @@ import type { DiscountType } from "@/lib/pricing/types";
 import type { RegistrationMode } from "@/lib/courses/registration-mode";
 import type { ActivityType } from "@/lib/courses/activity-type";
 import type { ParticipationMethod } from "@/lib/courses/participation-method";
-import type { PaymentMethod, PaidPaymentMethod } from "@/lib/payment/types";
+import type { PaymentMethod, CheckoutPaymentMethod } from "@/lib/payment/types";
 import type { SessionType } from "@/lib/sessions/types";
 
 export const COURSE_CATEGORIES = [
@@ -91,7 +91,7 @@ export type CourseFormInput = {
   sessionTime: string;
   capacity: number;
   coverImage: string;
-  allowedPaymentMethods: PaidPaymentMethod[];
+  allowedPaymentMethods: CheckoutPaymentMethod[];
   registrationMode: RegistrationMode;
   pricePerStudent: number;
   registrationDeadline: string;

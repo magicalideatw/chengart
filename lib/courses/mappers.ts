@@ -2,7 +2,7 @@ import type { DiscountType } from "@/lib/pricing/types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Course, CourseListing, CourseWithEnrollment } from "@/lib/courses/types";
 import type { PaymentMethod } from "@/lib/payment/types";
-import { parsePaidPaymentMethods } from "@/lib/payment/types";
+import { parseCheckoutPaymentMethods } from "@/lib/payment/types";
 import { parseRegistrationMode } from "@/lib/courses/registration-mode";
 import { parseActivityType } from "@/lib/courses/activity-type";
 import {
@@ -107,7 +107,7 @@ export function mapCourseRow(row: Record<string, unknown>): Course {
     fee: course.fee ?? 0,
     coverImage: normalizeCourseCoverStorageValue(course.cover_image),
     isOpen: course.is_open ?? false,
-    allowedPaymentMethods: parsePaidPaymentMethods(course.allowed_payment_methods),
+    allowedPaymentMethods: parseCheckoutPaymentMethods(course.allowed_payment_methods),
     registrationMode: parseRegistrationMode(course.registration_mode),
     pricePerStudent: course.price_per_student ?? course.fee ?? 0,
     registrationDeadline: course.registration_deadline ?? null,

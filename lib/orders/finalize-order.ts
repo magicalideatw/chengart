@@ -45,6 +45,9 @@ export function assertOrderPaymentMethod(input: {
     if (input.totalAmount <= 0) {
       return "免費活動不需選擇現場繳費";
     }
+    if (!input.course.allowedPaymentMethods.includes("on_site")) {
+      return "此活動不支援現場繳費";
+    }
     return null;
   }
 

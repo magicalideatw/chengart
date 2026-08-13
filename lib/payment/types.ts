@@ -6,6 +6,15 @@ export const PAID_PAYMENT_METHODS = ["ecpay", "bank_transfer"] as const;
 
 export type PaidPaymentMethod = (typeof PAID_PAYMENT_METHODS)[number];
 
+/** Admin-configurable checkout methods stored in courses.allowed_payment_methods (excludes free). */
+export const CHECKOUT_PAYMENT_METHODS = [
+  "ecpay",
+  "bank_transfer",
+  "on_site",
+] as const;
+
+export type CheckoutPaymentMethod = (typeof CHECKOUT_PAYMENT_METHODS)[number];
+
 export const PAYMENT_STATUSES = [
   "pending",
   "waiting_transfer",
@@ -48,12 +57,27 @@ export function parsePaymentMethods(value: unknown): PaymentMethod[] {
 }
 
 export function parsePaidPaymentMethods(value: unknown): PaidPaymentMethod[] {
-  const methods = parsePaymentMethods(value).filter(
+  return parseCheckoutPaymentMethods(value).filter(
     (method): method is PaidPaymentMethod =>
       method === "ecpay" || method === "bank_transfer",
   );
+}
+
+export function parseCheckoutPaymentMethods(
+  value: unknown,
+): CheckoutPaymentMethod[] {
+  const methods = parsePaymentMethods(value).filter(
+    (method): method is CheckoutPaymentMethod =>
+      method === "ecpay" || method === "bank_transfer" || method === "on_site",
+  );
 
   return methods.length > 0 ? methods : ["ecpay"];
+}
+
+export function allowsOnSitePayment(
+  allowedMethods: PaymentMethod[],
+): boolean {
+  return allowedMethods.includes("on_site");
 }
 
 export function resolveOnlinePaymentMethods(input: {
@@ -78,7 +102,12 @@ export function resolveAvailablePaymentMethods(input: {
     return ["free"];
   }
 
-  return resolveOnlinePaymentMethods(input);
+  const methods: PaymentMethod[] = resolveOnlinePaymentMethods(input);
+  if (allowsOnSitePayment(input.allowedMethods)) {
+    methods.push("on_site");
+  }
+
+  return methods;
 }
 
 export function resolveDefaultPaymentMethod(
@@ -97,8 +126,8 @@ export function resolveDefaultCheckoutPaymentMethod(input: {
     return "free";
   }
 
-  const onlineMethods = resolveOnlinePaymentMethods(input);
-  return onlineMethods[0] ?? "on_site";
+  const availableMethods = resolveAvailablePaymentMethods(input);
+  return resolveDefaultPaymentMethod(availableMethods);
 }
 
 export function getPaymentMethodLabel(method: string | null | undefined): string {

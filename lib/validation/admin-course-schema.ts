@@ -4,7 +4,7 @@ import { REGISTRATION_MODES } from "@/lib/courses/registration-mode";
 import { ACTIVITY_TYPES } from "@/lib/courses/activity-type";
 import { PARTICIPATION_METHODS } from "@/lib/courses/participation-method";
 import { DISCOUNT_TYPES } from "@/lib/pricing/types";
-import { PAID_PAYMENT_METHODS } from "@/lib/payment/types";
+import { CHECKOUT_PAYMENT_METHODS } from "@/lib/payment/types";
 import { SESSION_TYPES } from "@/lib/sessions/types";
 
 export const adminCourseSchema = z
@@ -40,7 +40,7 @@ export const adminCourseSchema = z
       .refine((value) => !value || !/^https?:\/\//i.test(value), {
         message: "請上傳圖片，不可使用外部網址",
       }),
-    allowedPaymentMethods: z.array(z.enum(PAID_PAYMENT_METHODS)).default([]),
+    allowedPaymentMethods: z.array(z.enum(CHECKOUT_PAYMENT_METHODS)).default([]),
     registrationMode: z.enum(REGISTRATION_MODES),
     pricePerStudent: z.coerce.number().int().min(0, "每人價格不可為負數"),
     registrationDeadline: z.string().trim().optional().default(""),
