@@ -114,6 +114,8 @@ export function flattenRegistrationExportRows(
               {
                 registrationId: student.registrationIds[0] ?? "",
                 sessionId: null,
+                sessionType: null,
+                sessionName: "",
                 date: "",
                 start_time: "",
                 end_time: "",

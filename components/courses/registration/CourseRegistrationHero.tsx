@@ -77,7 +77,7 @@ export function CourseRegistrationHero({
             {usesSessions ? (
               <>
                 <span className="rounded-full border border-white/20 px-3 py-1">
-                  依班別報名
+                  依時段報名
                 </span>
                 <span className="rounded-full border border-white/20 px-3 py-1">
                   每人 {formatFee(pricePerStudent)}

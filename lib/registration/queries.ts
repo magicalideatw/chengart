@@ -47,19 +47,38 @@ export async function getCourseRegistrationPlan(
     getOpenSessionsByCourseId(courseId, { fromDate: today }),
     getVisibleCoursePlansByCourseId(courseId),
   ]);
-  const courseSessionOptions = getCourseSessionRadioOptions(sessions);
-  const selfScheduledOptions = courseSessionOptions.filter(isSelfScheduledSession);
+  const fixedSessions = sessions.filter((session) => session.sessionType === "fixed");
+  const selfScheduledSessions = sessions.filter(isSelfScheduledSession);
+  const fixedSessionOptions = getCourseSessionRadioOptions(fixedSessions);
+  const selfScheduledOptions = getCourseSessionRadioOptions(selfScheduledSessions);
   const usesCoursePlans = selfScheduledOptions.length > 0 && coursePlans.length > 0;
-  const usesSessions = usesCoursePlans || courseSessionOptions.length > 0;
+
+  // Fixed-date/time courses always show 報名時段.
+  // Self-scheduled with course plans uses the plan picker instead.
+  // Self-scheduled with multiple recurring slots (no plans) still needs slot selection.
+  const registrationSlotOptions =
+    fixedSessionOptions.length > 0
+      ? fixedSessionOptions
+      : usesCoursePlans
+        ? []
+        : selfScheduledOptions;
+
+  const showRegistrationSlots = registrationSlotOptions.length > 0;
+  const usesSessions =
+    showRegistrationSlots || usesCoursePlans || selfScheduledOptions.length > 0;
   const hasSelectableSessions = usesCoursePlans
     ? true
-    : courseSessionOptions.some(isSessionSelectable);
+    : showRegistrationSlots
+      ? registrationSlotOptions.some(isSessionSelectable)
+      : selfScheduledOptions.some(isSessionSelectable);
 
   return {
     usesSessions,
     usesCoursePlans,
+    showRegistrationSlots,
     sessions,
-    courseSessionOptions,
+    registrationSlotOptions,
+    courseSessionOptions: registrationSlotOptions,
     coursePlans,
     primarySelfScheduledSessionId: selfScheduledOptions[0]?.id ?? null,
     defaultUnitPrice: course.fee,

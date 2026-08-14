@@ -60,6 +60,34 @@ export function formatCourseSessionScheduleLines(session: {
   };
 }
 
+function formatRegistrationSlotTimeRange(startTime: string, endTime: string): string {
+  if (startTime && endTime) return `${startTime}–${endTime}`;
+  return startTime || endTime || "";
+}
+
+/** Registration page radio label: A班｜14:00–15:00 or A班｜8/29（六）14:00–15:00 */
+export function formatRegistrationSlotLabel(session: {
+  sessionType?: string;
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}): string {
+  const name = session.name.trim() || "時段";
+  const timeRange = formatRegistrationSlotTimeRange(session.startTime, session.endTime);
+
+  if (isSelfScheduledSession(session)) {
+    return name;
+  }
+
+  if (session.date) {
+    const datePart = formatSessionCheckboxLabel(session.date);
+    return timeRange ? `${name}｜${datePart} ${timeRange}` : `${name}｜${datePart}`;
+  }
+
+  return timeRange ? `${name}｜${timeRange}` : name;
+}
+
 export function formatCourseSessionSelectionLabel(session: {
   sessionType?: string;
   name: string;

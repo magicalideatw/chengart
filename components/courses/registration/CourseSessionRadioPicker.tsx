@@ -3,16 +3,17 @@
 import type { ClassSession } from "@/lib/sessions/types";
 import { isSessionSelectable } from "@/lib/sessions/session-utils";
 import {
-  formatCourseSessionScheduleLines,
+  formatRegistrationSlotLabel,
   formatSessionDisplayPrice,
   isSelfScheduledSession,
+  SELF_SCHEDULED_SCHEDULE_MESSAGE,
 } from "@/lib/sessions/format";
 
 type CourseSessionRadioPickerProps = {
   sessions: ClassSession[];
   selectedSessionId: string | null;
   onChange: (sessionId: string) => void;
-  unitLabel?: string;
+  emptyLabel?: string;
 };
 
 function sessionStatusLabel(session: ClassSession): string | null {
@@ -26,12 +27,12 @@ export function CourseSessionRadioPicker({
   sessions,
   selectedSessionId,
   onChange,
-  unitLabel = "班別",
+  emptyLabel = "報名時段",
 }: CourseSessionRadioPickerProps) {
   if (sessions.length === 0) {
     return (
       <p className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted">
-        目前尚無可選{unitLabel}。
+        目前尚無可選{emptyLabel}。
       </p>
     );
   }
@@ -42,9 +43,9 @@ export function CourseSessionRadioPicker({
         const selectable = isSessionSelectable(session);
         const statusLabel = sessionStatusLabel(session);
         const checked = selectedSessionId === session.id;
-        const label = session.name.trim() || unitLabel;
-        const schedule = formatCourseSessionScheduleLines(session);
+        const slotLabel = formatRegistrationSlotLabel(session);
         const priceLabel = formatSessionDisplayPrice(session.price);
+        const isSelfScheduled = isSelfScheduledSession(session);
 
         return (
           <label
@@ -52,7 +53,7 @@ export function CourseSessionRadioPicker({
             className={`block rounded-2xl border p-4 transition ${
               selectable
                 ? checked
-                  ? "border-gold bg-gold-soft/40"
+                  ? "border-gold bg-gold-soft/40 ring-1 ring-gold/30"
                   : "cursor-pointer border-border bg-white hover:border-gold/40"
                 : "cursor-not-allowed border-border bg-white/70 opacity-70"
             }`}
@@ -68,16 +69,9 @@ export function CourseSessionRadioPicker({
                   className="mt-1 h-4 w-4 shrink-0 border-border text-gold focus:ring-gold"
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="mt-1 text-sm text-foreground">{schedule.primary}</p>
-                  {schedule.secondary ? (
-                    <p
-                      className={`mt-1 text-sm ${
-                        isSelfScheduledSession(session) ? "text-muted" : "text-muted"
-                      }`}
-                    >
-                      {schedule.secondary}
-                    </p>
+                  <p className="text-sm font-semibold text-foreground">{slotLabel}</p>
+                  {isSelfScheduled ? (
+                    <p className="mt-1 text-sm text-muted">{SELF_SCHEDULED_SCHEDULE_MESSAGE}</p>
                   ) : null}
                 </div>
               </div>

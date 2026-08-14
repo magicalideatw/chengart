@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { getAdminCourseSessionOptions } from "@/lib/actions/admin/registrations";
-import { formatFee, formatSessionDate } from "@/lib/admin/format";
+import {
+  collectRegistrationSlotDisplays,
+  formatFee,
+  formatSessionDate,
+  resolveAdminRegistrationPaymentMethodLabel,
+} from "@/lib/admin/format";
 import type { AdminOrderRegistration, AdminOrderStudent } from "@/lib/admin/types";
 import type { Course } from "@/lib/courses/types";
 import {
@@ -87,6 +92,8 @@ function toOrderStudent(student: EditableStudent): AdminOrderStudent {
     sessions: student.sessionIds.map((sessionId, index) => ({
       registrationId: student.registrationIds[index] ?? `${student.key}-${sessionId}`,
       sessionId,
+      sessionType: null,
+      sessionName: "",
       date: "",
       start_time: "",
       end_time: "",
@@ -132,6 +139,14 @@ export function RegistrationEditModal({
       }),
     [pricePerStudent, students.length],
   );
+  const slotDisplays = useMemo(
+    () => collectRegistrationSlotDisplays(registration.students),
+    [registration.students],
+  );
+  const paymentMethodLabel = resolveAdminRegistrationPaymentMethodLabel({
+    paymentMethod: registration.paymentMethod,
+    orderAmount: registration.orderAmount,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -275,6 +290,34 @@ export function RegistrationEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6">
+          <section className="rounded-2xl border border-border bg-surface/60 px-5 py-4">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-muted">班別／場次</dt>
+                <dd className="mt-1 space-y-1 text-sm text-foreground">
+                  {slotDisplays.length > 0 ? (
+                    slotDisplays.map((slot, index) => (
+                      <div key={`${slot.sortKey}-${index}`}>
+                        <p className="font-medium">{slot.primary}</p>
+                        {slot.secondary ? (
+                          <p className="text-muted">{slot.secondary}</p>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <p>—</p>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted">付款方式</dt>
+                <dd className="mt-1 text-sm font-medium text-foreground">
+                  {paymentMethodLabel}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
           <section className="space-y-4 rounded-2xl border border-border bg-surface px-5 py-4">
             <h3 className="text-sm font-medium text-foreground">
               {isAdult ? "報名資料" : "家長資料"}

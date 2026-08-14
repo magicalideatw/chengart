@@ -111,7 +111,9 @@ export default async function CourseRegistrationPage({ params }: PageProps) {
         value ?? {
           usesSessions: false,
           usesCoursePlans: false,
+          showRegistrationSlots: false,
           sessions: [],
+          registrationSlotOptions: [],
           courseSessionOptions: [],
           coursePlans: [],
           primarySelfScheduledSessionId: null,

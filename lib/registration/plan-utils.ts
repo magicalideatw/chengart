@@ -8,7 +8,12 @@ import type { CoursePlan } from "@/lib/course-plans/types";
 export type CourseRegistrationPlanShape = {
   usesSessions: boolean;
   usesCoursePlans: boolean;
+  /** Fixed or multi-slot courses: show the 報名時段 picker on the registration page */
+  showRegistrationSlots: boolean;
   sessions: ClassSession[];
+  /** Selectable slots for the 報名時段 picker (fixed sessions, or recurring slots when not course-plan) */
+  registrationSlotOptions: ClassSession[];
+  /** @deprecated use registrationSlotOptions */
   courseSessionOptions: ClassSession[];
   coursePlans: CoursePlan[];
   primarySelfScheduledSessionId: string | null;

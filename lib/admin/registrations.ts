@@ -8,6 +8,8 @@ import type { AdminRegistration } from "@/lib/admin/types";
 import { mapCourseRow } from "@/lib/courses/mappers";
 import { getEnrollmentCountsByCourseIds } from "@/lib/courses/queries";
 import type { RegistrationOrderFormData } from "@/lib/registration/types";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { isPaymentMethod } from "@/lib/payment/types";
 import { createPaymentClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export async function fetchAdminRegistrations(): Promise<{
@@ -97,7 +99,7 @@ export async function fetchAdminRegistrations(): Promise<{
 
   const [coursesResult, ordersResult] = await Promise.all([
     supabase.from("courses").select("*"),
-    supabase.from("orders").select("id, amount, form_data"),
+    supabase.from("orders").select("id, amount, form_data, payment_method"),
   ]);
 
   console.log(
@@ -117,13 +119,22 @@ export async function fetchAdminRegistrations(): Promise<{
 
   const orderMap = new Map<
     string,
-    { amount: number | null; formData: RegistrationOrderFormData | null }
+    {
+      amount: number | null;
+      formData: RegistrationOrderFormData | null;
+      paymentMethod: PaymentMethod | null;
+    }
   >();
 
   for (const order of ordersResult.data ?? []) {
     orderMap.set(String(order.id), {
       amount: typeof order.amount === "number" ? order.amount : null,
       formData: (order.form_data as RegistrationOrderFormData) ?? null,
+      paymentMethod:
+        typeof order.payment_method === "string" &&
+        isPaymentMethod(order.payment_method)
+          ? order.payment_method
+          : null,
     });
   }
 

@@ -14,8 +14,11 @@ import {
 } from "@/lib/actions/admin/registrations";
 import {
   collectRegistrationSessionGroups,
+  collectRegistrationSlotDisplays,
+  formatAdminRegistrationSlotDisplay,
   formatCourseLabel,
   formatDateTime,
+  resolveAdminRegistrationPaymentMethodLabel,
 } from "@/lib/admin/format";
 import { formatGender, normalizeGenderValue } from "@/lib/registration/gender";
 import type { AdminOrderRegistration } from "@/lib/admin/types";
@@ -41,7 +44,14 @@ const STATUS_STYLES: Record<AdminOrderRegistration["status"], string> = {
   cancelled: "bg-surface text-muted",
 };
 
-const TABLE_COLUMN_COUNT = 11;
+const PAYMENT_METHOD_STYLES: Record<string, string> = {
+  現場繳費: "bg-violet-50 text-violet-700",
+  "信用卡（ECPay）": "bg-sky-50 text-sky-700",
+  銀行轉帳: "bg-indigo-50 text-indigo-700",
+  免費: "bg-emerald-50 text-emerald-700",
+};
+
+const TABLE_COLUMN_COUNT = 12;
 
 type SortKey = "created_at" | "studentCount";
 type SortDirection = "asc" | "desc";
@@ -58,6 +68,41 @@ type ToastState = {
   title: string;
   message?: string;
 };
+
+function PaymentMethodBadge({ label }: { label: string }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+        PAYMENT_METHOD_STYLES[label] ?? "bg-surface text-foreground"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RegistrationSlotCell({
+  slots,
+}: {
+  slots: ReturnType<typeof collectRegistrationSlotDisplays>;
+}) {
+  if (slots.length === 0) {
+    return <span className="text-muted">—</span>;
+  }
+
+  return (
+    <div className="space-y-2 text-sm leading-relaxed">
+      {slots.map((slot, index) => (
+        <div key={`${slot.sortKey}-${index}`}>
+          <p className="font-medium text-foreground">{slot.primary}</p>
+          {slot.secondary ? (
+            <p className="mt-0.5 text-muted">{slot.secondary}</p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SortButton({
   label,
@@ -135,22 +180,39 @@ export function RegistrationTable({
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     const matched = keyword
-      ? registrations.filter((item) =>
-          [
+      ? registrations.filter((item) => {
+          const paymentMethodLabel = resolveAdminRegistrationPaymentMethodLabel({
+            paymentMethod: item.paymentMethod,
+            orderAmount: item.orderAmount,
+          });
+          const slotDisplays = collectRegistrationSlotDisplays(item.students);
+
+          return [
             item.name,
             item.email,
             item.phone,
             item.courseTitle,
+            paymentMethodLabel,
+            STATUS_LABELS[item.status],
             String(item.studentCount),
+            formatDateTime(item.created_at),
             ...item.students.flatMap((student) => [
               student.student_name,
               student.student_age,
               student.note ?? "",
-              ...(student.sessions ?? []).map(
-                (session) =>
-                  `${session.scheduleLine} ${session.compactLine} ${session.className}`,
-              ),
+              ...(student.sessions ?? []).flatMap((session) => {
+                const slot = formatAdminRegistrationSlotDisplay(session);
+                return [
+                  session.scheduleLine,
+                  session.compactLine,
+                  session.className,
+                  session.sessionName,
+                  slot.primary,
+                  slot.secondary ?? "",
+                ];
+              }),
             ]),
+            ...slotDisplays.flatMap((slot) => [slot.primary, slot.secondary ?? ""]),
             ...collectRegistrationSessionGroups(item.students).flatMap(
               (group) => [group.studentName, ...group.lines],
             ),
@@ -158,8 +220,8 @@ export function RegistrationTable({
             String(value ?? "")
               .toLowerCase()
               .includes(keyword),
-          ),
-        )
+          );
+        })
       : registrations;
 
     return [...matched].sort((a, b) => {
@@ -365,7 +427,7 @@ export function RegistrationTable({
           value={query}
           onChange={setQuery}
           resultCount={filtered.length}
-          placeholder="搜尋家長、學生、課程、日期…"
+          placeholder="搜尋家長、學生、課程、班別／場次、付款方式、日期…"
         />
 
         <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
@@ -380,14 +442,19 @@ export function RegistrationTable({
                     { label: "電話", sortable: false },
                     { label: "Email", sortable: false },
                     { label: "課程", sortable: false },
-                    { label: "報名日期", sortable: false },
+                    { label: "班別／場次", sortable: false },
+                    {
+                      label: "報名日期",
+                      sortable: true,
+                      key: "created_at" as const,
+                    },
+                    { label: "付款方式", sortable: false },
                     { label: "付款狀態", sortable: false },
                     {
                       label: "學生數",
                       sortable: true,
                       key: "studentCount" as const,
                     },
-                    { label: "建立時間", sortable: true, key: "created_at" as const },
                     { label: "操作", sortable: false },
                   ].map((column) => (
                     <th
@@ -430,9 +497,11 @@ export function RegistrationTable({
                 ) : (
                   filtered.flatMap((item) => {
                     const expanded = expandedIds.has(item.id);
-                    const sessionGroups = collectRegistrationSessionGroups(
-                      item.students,
-                    );
+                    const slotDisplays = collectRegistrationSlotDisplays(item.students);
+                    const paymentMethodLabel = resolveAdminRegistrationPaymentMethodLabel({
+                      paymentMethod: item.paymentMethod,
+                      orderAmount: item.orderAmount,
+                    });
                     const rows = [
                       <tr
                         key={item.id}
@@ -465,41 +534,26 @@ export function RegistrationTable({
                         <td className="whitespace-nowrap px-4 py-4 font-medium text-foreground">
                           {item.name || "—"}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                        <td className="max-w-[120px] truncate px-4 py-4 text-foreground">
                           {item.phone || "—"}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-foreground">
+                        <td className="max-w-[180px] truncate px-4 py-4 text-foreground">
                           {item.email || "—"}
                         </td>
-                        <td className="min-w-[180px] px-4 py-4 text-foreground">
+                        <td className="min-w-[160px] px-4 py-4 text-foreground">
                           {formatCourseLabel(
                             item.courseTitle,
                             item.courseCategory,
                           )}
                         </td>
-                        <td className="min-w-[200px] px-4 py-4 text-foreground">
-                          {sessionGroups.length > 0 ? (
-                            <div className="space-y-3 text-sm leading-relaxed">
-                              {sessionGroups.map((group) => (
-                                <div key={group.studentId}>
-                                  <div className="font-medium text-foreground">
-                                    {group.studentName}
-                                  </div>
-                                  {group.lines.length > 0 ? (
-                                    <ul className="mt-1 space-y-0.5">
-                                      {group.lines.map((line, index) => (
-                                        <li key={`${line}-${index}`}>• {line}</li>
-                                      ))}
-                                    </ul>
-                                  ) : (
-                                    <p className="mt-1 text-muted">—</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
+                        <td className="min-w-[180px] px-4 py-4 text-foreground">
+                          <RegistrationSlotCell slots={slotDisplays} />
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-muted">
+                          {formatDateTime(item.created_at)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4">
+                          <PaymentMethodBadge label={paymentMethodLabel} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-4">
                           <span
@@ -514,9 +568,6 @@ export function RegistrationTable({
                             studentCount={item.studentCount}
                             studentNames={item.studentNames}
                           />
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 text-muted">
-                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 pr-6">
                           <div className="flex items-center gap-2">
@@ -548,6 +599,48 @@ export function RegistrationTable({
                         <tr key={`${item.id}-details`} className="bg-surface/40">
                           <td colSpan={TABLE_COLUMN_COUNT} className="px-6 py-5">
                             <div className="space-y-4">
+                              <div className="rounded-2xl border border-border bg-white px-5 py-4">
+                                <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                  <div>
+                                    <dt className="text-xs text-muted">課程名稱</dt>
+                                    <dd className="mt-1 text-sm font-medium text-foreground">
+                                      {formatCourseLabel(
+                                        item.courseTitle,
+                                        item.courseCategory,
+                                      )}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted">班別／場次</dt>
+                                    <dd className="mt-1">
+                                      <RegistrationSlotCell slots={slotDisplays} />
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted">報名日期</dt>
+                                    <dd className="mt-1 text-sm text-foreground">
+                                      {formatDateTime(item.created_at)}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted">付款方式</dt>
+                                    <dd className="mt-1">
+                                      <PaymentMethodBadge label={paymentMethodLabel} />
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted">付款狀態</dt>
+                                    <dd className="mt-1">
+                                      <span
+                                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[item.status]}`}
+                                      >
+                                        {STATUS_LABELS[item.status]}
+                                      </span>
+                                    </dd>
+                                  </div>
+                                </dl>
+                              </div>
+
                               {item.students.map((student, index) => (
                                 <div
                                   key={student.id}
@@ -571,16 +664,22 @@ export function RegistrationTable({
                                     <p className="text-sm font-medium text-foreground">
                                       已報：
                                     </p>
-                                    <ul className="mt-2 space-y-1 text-sm text-foreground">
+                                    <ul className="mt-2 space-y-2 text-sm text-foreground">
                                       {student.sessions.length > 0 ? (
-                                        student.sessions.map((session) => (
-                                          <li key={session.registrationId}>
-                                            ✓ {session.compactLine}
-                                            {session.className !== "—"
-                                              ? ` · ${session.className}`
-                                              : ""}
-                                          </li>
-                                        ))
+                                        student.sessions.map((session) => {
+                                          const slot =
+                                            formatAdminRegistrationSlotDisplay(session);
+                                          return (
+                                            <li key={session.registrationId}>
+                                              <p className="font-medium">{slot.primary}</p>
+                                              {slot.secondary ? (
+                                                <p className="mt-0.5 text-muted">
+                                                  {slot.secondary}
+                                                </p>
+                                              ) : null}
+                                            </li>
+                                          );
+                                        })
                                       ) : (
                                         <li className="text-muted">—</li>
                                       )}

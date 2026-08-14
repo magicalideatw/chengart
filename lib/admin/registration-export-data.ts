@@ -94,7 +94,11 @@ export async function fetchRegistrationExportSource(
 
   const orderMap = new Map<
     string,
-    { amount: number | null; formData: RegistrationOrderFormData | null }
+    {
+      amount: number | null;
+      formData: RegistrationOrderFormData | null;
+      paymentMethod: PaymentMethod | null;
+    }
   >();
   const orders: Record<string, OrderExportMeta> = {};
 
@@ -109,6 +113,7 @@ export async function fetchRegistrationExportSource(
     orderMap.set(orderId, {
       amount: typeof order.amount === "number" ? order.amount : null,
       formData: (order.form_data as RegistrationOrderFormData) ?? null,
+      paymentMethod,
     });
 
     orders[orderId] = {

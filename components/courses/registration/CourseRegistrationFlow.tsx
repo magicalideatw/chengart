@@ -90,6 +90,8 @@ export function CourseRegistrationFlow({
 
   const usesSessions = plan.usesSessions;
   const usesCoursePlans = plan.usesCoursePlans;
+  const showRegistrationSlots = plan.showRegistrationSlots;
+  const registrationSlotOptions = plan.registrationSlotOptions;
   const selectedPlan = useMemo(
     () => plan.coursePlans.find((entry) => entry.id === selectedCoursePlanId) ?? null,
     [plan.coursePlans, selectedCoursePlanId],
@@ -252,9 +254,9 @@ export function CourseRegistrationFlow({
           });
         });
       }
-    } else if (usesSessions) {
+    } else if (showRegistrationSlots) {
       if (!selectedCourseSessionId) {
-        setErrorMessage("請選擇班別");
+        setErrorMessage("請選擇報名時段");
         return;
       }
 
@@ -276,8 +278,22 @@ export function CourseRegistrationFlow({
         (student) => (student.sessionIds?.length ?? 0) === 0,
       );
       if (missingSessions) {
-        setErrorMessage("請選擇班別");
+        setErrorMessage("請選擇報名時段");
         return;
+      }
+    } else if (usesSessions && plan.primarySelfScheduledSessionId) {
+      const primarySessionId = plan.primarySelfScheduledSessionId;
+      if (activeType === "adult") {
+        adultMethods.setValue("sessionIds", [primarySessionId], {
+          shouldValidate: true,
+        });
+      } else {
+        const students = parentMethods.getValues("students");
+        students.forEach((_, index) => {
+          parentMethods.setValue(`students.${index}.sessionIds`, [primarySessionId], {
+            shouldValidate: true,
+          });
+        });
       }
     }
 
@@ -375,7 +391,10 @@ export function CourseRegistrationFlow({
       <CourseRegistrationHero
         course={course}
         plan={plan}
-        onRegister={() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        onRegister={() => {
+          const targetId = plan.showRegistrationSlots ? "registration-slots" : "register";
+          document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
         registrationMode={course.registrationMode}
       />
 
@@ -385,6 +404,53 @@ export function CourseRegistrationFlow({
         mediaItems={mediaItems}
       />
       <ActivityRulesSection activityRules={course.activityRules} />
+
+      {canRegister && showRegistrationSlots ? (
+        <section
+          id="registration-slots"
+          className="mx-auto max-w-6xl scroll-mt-20 px-5 py-10 md:px-8"
+        >
+          <div className="rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)] sm:p-8">
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              報名時段
+            </h2>
+            <p className="mt-2 text-sm text-muted">請選擇您要報名的上課時段</p>
+            <div className="mt-5">
+              <CourseSessionRadioPicker
+                sessions={registrationSlotOptions}
+                selectedSessionId={selectedCourseSessionId}
+                onChange={setSelectedCourseSessionId}
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {canRegister && usesCoursePlans ? (
+        <section className="mx-auto max-w-6xl px-5 py-10 md:px-8">
+          <div className="rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)] sm:p-8">
+            <h2 className="font-display text-xl font-semibold text-foreground">
+              請選擇課程方案
+            </h2>
+            <div className="mt-5">
+              <CoursePlanRadioPicker
+                plans={plan.coursePlans}
+                selectedPlanId={selectedCoursePlanId}
+                onChange={setSelectedCoursePlanId}
+              />
+            </div>
+            <div className="mt-5">
+              <SelfScheduledScheduleNotice />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {canRegister && !showRegistrationSlots && !usesCoursePlans && usesSessions ? (
+        <section className="mx-auto max-w-6xl px-5 py-10 md:px-8">
+          <SelfScheduledScheduleNotice />
+        </section>
+      ) : null}
 
       {canRegister && (
         <div ref={formRef} id="register" className="scroll-mt-20">
@@ -413,37 +479,6 @@ export function CourseRegistrationFlow({
                           value={selectedType}
                           onChange={setSelectedType}
                         />
-                      </div>
-                    ) : null}
-
-                    {usesCoursePlans ? (
-                      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-                        <h3 className="font-display text-lg font-semibold text-foreground">
-                          請選擇課程方案
-                        </h3>
-                        <div className="mt-4">
-                          <CoursePlanRadioPicker
-                            plans={plan.coursePlans}
-                            selectedPlanId={selectedCoursePlanId}
-                            onChange={setSelectedCoursePlanId}
-                          />
-                        </div>
-                        <div className="mt-5">
-                          <SelfScheduledScheduleNotice />
-                        </div>
-                      </div>
-                    ) : usesSessions ? (
-                      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-                        <h3 className="font-display text-lg font-semibold text-foreground">
-                          選擇班別
-                        </h3>
-                        <div className="mt-4">
-                          <CourseSessionRadioPicker
-                            sessions={plan.courseSessionOptions}
-                            selectedSessionId={selectedCourseSessionId}
-                            onChange={setSelectedCourseSessionId}
-                          />
-                        </div>
                       </div>
                     ) : null}
 

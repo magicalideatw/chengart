@@ -14,6 +14,8 @@ import type { ActiveRegistrationType } from "@/lib/courses/registration-mode";
 import { mapCourseRow } from "@/lib/courses/mappers";
 import type { RegistrationOrderFormData } from "@/lib/registration/types";
 import { DEFAULT_MAX_CAPACITY } from "@/lib/registrations/availability";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { isPaymentMethod } from "@/lib/payment/types";
 import type { Database } from "@/lib/supabase/database.types";
 
 type JoinedClass = {
@@ -24,7 +26,9 @@ type JoinedClass = {
 
 type JoinedSession = {
   id: string;
-  date: string;
+  session_type: string;
+  name: string;
+  date: string | null;
   start_time: string;
   end_time: string;
   classes: JoinedClass | JoinedClass[] | null;
@@ -61,6 +65,23 @@ type MappedRegistrationRow = {
   };
 };
 
+function compareLocaleStrings(
+  left: string | null | undefined,
+  right: string | null | undefined,
+  locale = "zh-Hant",
+): number {
+  return (left ?? "").localeCompare(right ?? "", locale);
+}
+
+function compareRegistrationSessions(
+  left: AdminRegistrationSession,
+  right: AdminRegistrationSession,
+): number {
+  const byDate = compareLocaleStrings(left.date, right.date, "en");
+  if (byDate !== 0) return byDate;
+  return compareLocaleStrings(left.start_time, right.start_time, "en");
+}
+
 function normalizeJoinedClass(
   value: JoinedSession["classes"],
 ): JoinedClass | null {
@@ -92,7 +113,9 @@ function buildSessionFromRow(
     return {
       registrationId: row.id,
       sessionId: row.session_id ?? null,
-      date: joinedSession.date,
+      sessionType: joinedSession.session_type ?? null,
+      sessionName: joinedSession.name?.trim() ?? "",
+      date: joinedSession.date ?? "",
       start_time: startTime,
       end_time: endTime,
       className,
@@ -116,6 +139,8 @@ function buildSessionFromRow(
   return {
     registrationId: row.id,
     sessionId: null,
+    sessionType: null,
+    sessionName: row.class_name?.trim() ?? "",
     date: legacyDate,
     start_time: start,
     end_time: end,
@@ -143,13 +168,13 @@ function buildStudentFromGroup(
   const first = items[0];
   const joinedStudent = normalizeJoinedStudent(first.row.students);
   const sessions = [...items]
-    .sort((a, b) => a.session.date.localeCompare(b.session.date))
+    .sort((a, b) => compareRegistrationSessions(a.session, b.session))
     .map((item) => item.session);
 
   return {
     id: joinedStudent?.id ?? key,
-    student_name: joinedStudent?.student_name ?? first.row.student_name,
-    student_age: joinedStudent?.student_age ?? first.row.student_age,
+    student_name: joinedStudent?.student_name ?? first.row.student_name ?? "",
+    student_age: joinedStudent?.student_age ?? first.row.student_age ?? "",
     gender: joinedStudent?.gender ?? null,
     is_first_time: joinedStudent?.is_first_time ?? first.row.is_first_time,
     note: joinedStudent?.note ?? first.row.note,
@@ -176,7 +201,7 @@ function inferRegistrationType(input: {
 
   if (
     input.students.length === 1 &&
-    input.students[0]?.student_name.trim() === input.parentName.trim()
+    (input.students[0]?.student_name ?? "").trim() === input.parentName.trim()
   ) {
     return "adult";
   }
@@ -191,6 +216,7 @@ function mergeOrderGroup(
   orderMeta?: {
     amount: number | null;
     formData: RegistrationOrderFormData | null;
+    paymentMethod: PaymentMethod | null;
   },
 ): AdminOrderRegistration {
   const sorted = [...items].sort(
@@ -210,7 +236,7 @@ function mergeOrderGroup(
 
   const students = [...studentGroups.values()]
     .map((group) => buildStudentFromGroup(studentKey(group[0].row), group))
-    .sort((a, b) => a.student_name.localeCompare(b.student_name, "zh-Hant"));
+    .sort((a, b) => compareLocaleStrings(a.student_name, b.student_name));
 
   const registrationIds = items.map((item) => item.row.id);
   const parentName = pickNonEmptyString(
@@ -257,6 +283,7 @@ function mergeOrderGroup(
     studentCount: students.length,
     registrationType,
     orderAmount: orderMeta?.amount ?? null,
+    paymentMethod: orderMeta?.paymentMethod ?? null,
     studentNames: students.map((student) => student.student_name),
     slotEnrollment,
     maxCapacity: course?.capacity ?? DEFAULT_MAX_CAPACITY,
@@ -269,7 +296,11 @@ export function groupAdminRegistrations(
   slotCounts: Record<string, number>,
   orderMap?: Map<
     string,
-    { amount: number | null; formData: RegistrationOrderFormData | null }
+    {
+      amount: number | null;
+      formData: RegistrationOrderFormData | null;
+      paymentMethod: PaymentMethod | null;
+    }
   >,
 ): AdminOrderRegistration[] {
   console.log("[mapper input]", rows.length);
@@ -336,6 +367,8 @@ export const ADMIN_REGISTRATIONS_SELECT = `
   *,
   sessions (
     id,
+    session_type,
+    name,
     date,
     start_time,
     end_time,

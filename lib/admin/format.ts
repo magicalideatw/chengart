@@ -1,3 +1,8 @@
+import { SESSION_TYPE_LABELS } from "@/lib/sessions/types";
+import type { AdminOrderStudent, AdminRegistrationSession } from "@/lib/admin/types";
+import type { PaymentMethod } from "@/lib/payment/types";
+import { getPaymentMethodLabel } from "@/lib/payment/types";
+
 export function formatSessionDate(date?: string | null): string {
   if (!date) return "—";
 
@@ -159,6 +164,162 @@ export function formatClassLabel(weekday?: string | null, name?: string | null):
   return `${safeWeekday}${safeName}`;
 }
 
+const SELF_SCHEDULED_PLACEHOLDER_DATE = "2099-01-01";
+
+function isValidAdminRegistrationSessionDate(date?: string | null): boolean {
+  if (!date || date === "—") return false;
+  if (date === SELF_SCHEDULED_PLACEHOLDER_DATE) return false;
+  return true;
+}
+
+export type AdminRegistrationSlotDisplay = {
+  primary: string;
+  secondary: string | null;
+  sortKey: string;
+};
+
+export function formatAdminRegistrationSlotDisplay(
+  session: Pick<
+    AdminRegistrationSession,
+    | "sessionType"
+    | "sessionName"
+    | "className"
+    | "date"
+    | "start_time"
+    | "end_time"
+  >,
+): AdminRegistrationSlotDisplay {
+  const isSelfScheduled = session.sessionType === "self_scheduled";
+  const hasDate = isValidAdminRegistrationSessionDate(session.date);
+  const timeLabel = formatAdminSessionTimeHyphen(session.start_time, session.end_time);
+  const dateTimeLabel = hasDate
+    ? formatAdminRegistrationSessionLine(
+        session.date,
+        session.start_time,
+        session.end_time,
+      )
+    : null;
+
+  if (isSelfScheduled && !hasDate) {
+    return {
+      primary: SESSION_TYPE_LABELS.self_scheduled,
+      secondary: null,
+      sortKey: "self-scheduled",
+    };
+  }
+
+  if (isSelfScheduled && hasDate) {
+    return {
+      primary: SESSION_TYPE_LABELS.self_scheduled,
+      secondary: dateTimeLabel,
+      sortKey: `${session.date}T${session.start_time ?? ""}`,
+    };
+  }
+
+  const classLabel = session.className !== "—" ? session.className : "";
+  const nameLabel = session.sessionName.trim();
+
+  if (!classLabel && nameLabel) {
+    if (dateTimeLabel) {
+      return {
+        primary: nameLabel,
+        secondary: dateTimeLabel,
+        sortKey: `${session.date}T${session.start_time ?? ""}`,
+      };
+    }
+
+    if (timeLabel && timeLabel !== "—") {
+      return {
+        primary: `${nameLabel}｜${timeLabel}`,
+        secondary: null,
+        sortKey: nameLabel,
+      };
+    }
+
+    return {
+      primary: nameLabel,
+      secondary: null,
+      sortKey: nameLabel,
+    };
+  }
+
+  if (classLabel) {
+    if (dateTimeLabel) {
+      return {
+        primary: classLabel,
+        secondary: dateTimeLabel,
+        sortKey: `${session.date}T${session.start_time ?? ""}`,
+      };
+    }
+
+    if (timeLabel && timeLabel !== "—") {
+      return {
+        primary: `${classLabel}｜${timeLabel}`,
+        secondary: null,
+        sortKey: classLabel,
+      };
+    }
+
+    return {
+      primary: classLabel,
+      secondary: null,
+      sortKey: classLabel,
+    };
+  }
+
+  if (dateTimeLabel) {
+    return {
+      primary: dateTimeLabel,
+      secondary: null,
+      sortKey: `${session.date}T${session.start_time ?? ""}`,
+    };
+  }
+
+  return {
+    primary: "—",
+    secondary: null,
+    sortKey: "",
+  };
+}
+
+export function collectRegistrationSlotDisplays(
+  students: Array<Pick<AdminOrderStudent, "sessions">>,
+): AdminRegistrationSlotDisplay[] {
+  const seen = new Set<string>();
+  const entries: AdminRegistrationSlotDisplay[] = [];
+
+  for (const student of students) {
+    for (const session of student.sessions ?? []) {
+      const dedupeKey =
+        session.sessionId ??
+        `${session.sessionType ?? ""}|${session.sessionName}|${session.className}|${session.date}|${session.start_time}|${session.end_time}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      entries.push(formatAdminRegistrationSlotDisplay(session));
+    }
+  }
+
+  return entries.sort((a, b) =>
+    (a.sortKey ?? "").localeCompare(b.sortKey ?? "", "zh-Hant"),
+  );
+}
+
+export function resolveAdminRegistrationPaymentMethodLabel(input: {
+  paymentMethod: PaymentMethod | null | undefined;
+  orderAmount: number | null | undefined;
+}): string {
+  if (input.paymentMethod) {
+    return getPaymentMethodLabel(input.paymentMethod);
+  }
+
+  if ((input.orderAmount ?? 0) <= 0) {
+    return getPaymentMethodLabel("free");
+  }
+
+  return "—";
+}
+
 /** e.g. 7/14（二） — for admin registration list grouped by student */
 export function formatAdminRegistrationSessionDateLine(
   date?: string | null,
@@ -220,7 +381,7 @@ function collectStudentSessionLines(
   }
 
   return entries
-    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    .sort((a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""))
     .map((entry) => entry.line);
 }
 
