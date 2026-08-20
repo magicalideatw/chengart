@@ -4,7 +4,7 @@ export const siteConfig = {
   tagline: "Magic × Drama × Dance",
   slogan: "讓藝術成為每個人成長的力量",
   description:
-    "晟心誠藝劇團提供魔術、戲劇、舞蹈藝術教育與專業演出服務，服務兒童、青少年、成人、學校與企業。",
+    "晟心誠藝劇團以魔術、戲劇與舞蹈為核心，提供舞台演出、藝術教育、兒童課程、活動企劃與場地空間服務，致力於讓藝術走進生活。",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://chengart.tw",
   email: "chengart.theatre@gmail.com",
   facebook: "https://facebook.com/chengart.theatre",

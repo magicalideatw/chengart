@@ -39,7 +39,7 @@ function buildOffer(price: number, pageUrl: string, available: boolean) {
 
 export function buildOrganizationJsonLd() {
   return {
-    "@type": "Organization",
+    "@type": ["Organization", "PerformingGroup"],
     "@id": `${siteConfig.url}/#organization`,
     name: siteConfig.name,
     alternateName: siteConfig.nameEn,
@@ -48,6 +48,14 @@ export function buildOrganizationJsonLd() {
     description: siteConfig.description,
     email: siteConfig.email,
     sameAs: [siteConfig.facebook, siteConfig.instagram],
+    knowsAbout: [
+      "魔術表演",
+      "戲劇",
+      "舞蹈",
+      "藝術教育",
+      "舞台演出",
+      "兒童藝術課程",
+    ],
   };
 }
 

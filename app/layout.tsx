@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   keywords: [
     "晟心誠藝劇團",
-    "Cheng Art Theatre",
-    "魔術",
+    "魔術表演",
     "戲劇",
     "舞蹈",
     "藝術教育",
-    "演出服務",
-    "夏令營",
+    "桃園藝文",
+    "中壢魔術",
+    "兒童藝術課程",
   ],
   authors: [{ name: siteConfig.name }],
   creator: siteConfig.name,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     locale: "zh_TW",
     url: siteConfig.url,
     siteName: siteConfig.name,
-    title: `${siteConfig.name} | ${siteConfig.nameEn}`,
+    title: "晟心誠藝劇團｜魔術 × 戲劇 × 舞蹈｜演出與藝術教育",
     description: siteConfig.description,
     images: [
       {
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${siteConfig.name} | ${siteConfig.nameEn}`,
+    title: "晟心誠藝劇團｜魔術 × 戲劇 × 舞蹈｜演出與藝術教育",
     description: siteConfig.description,
     images: [getDefaultOgImageUrl()],
   },

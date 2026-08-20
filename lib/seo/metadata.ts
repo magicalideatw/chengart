@@ -9,6 +9,7 @@ export type PageMetadataInput = {
   image?: string;
   imageAlt?: string;
   ogType?: "website" | "article";
+  keywords?: string[];
   /** When true, bypasses the root title template. */
   absoluteTitle?: boolean;
   robots?: Metadata["robots"];
@@ -32,6 +33,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
       ? { absolute: input.title }
       : input.title,
     description: input.description,
+    ...(input.keywords ? { keywords: input.keywords } : {}),
     alternates: {
       canonical,
     },
