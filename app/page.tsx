@@ -8,6 +8,7 @@ import { CoursesSection } from "@/components/home/CoursesSection";
 import { AboutSection } from "@/components/home/AboutSection";
 import { NewsSection } from "@/components/home/NewsSection";
 import { ContactSection } from "@/components/home/ContactSection";
+import { HomeSeoIntroSection } from "@/components/seo/HomeSeoIntroSection";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { pageSeo } from "@/lib/seo/pages";
 
@@ -25,6 +26,7 @@ export default function Home() {
         <PerformanceServicesSection />
         <NewsSection />
         <ContactSection />
+        <HomeSeoIntroSection />
       </main>
       <Footer />
     </>
