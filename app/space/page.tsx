@@ -11,6 +11,7 @@ import { SpaceLocationSection } from "@/components/space/SpaceLocationSection";
 import { SpaceNoticeSection } from "@/components/space/SpaceNoticeSection";
 import { SpacePricingSection } from "@/components/space/SpacePricingSection";
 import { SpaceUsageSection } from "@/components/space/SpaceUsageSection";
+import { SeoIntroSection } from "@/components/seo/SeoIntroSection";
 import { buildPageMetadata, toAbsoluteUrl } from "@/lib/seo/metadata";
 import { pageSeo } from "@/lib/seo/pages";
 import { buildLocalBusinessJsonLd } from "@/lib/seo/json-ld";
@@ -35,6 +36,7 @@ export default function SpaceRentalPage() {
         <SpaceLocationSection />
         <SpaceNoticeSection />
         <SpaceInquirySection />
+        <SeoIntroSection pageKey="space" />
       </main>
       <Footer />
     </>
