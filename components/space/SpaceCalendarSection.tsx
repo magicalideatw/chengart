@@ -25,7 +25,7 @@ export function SpaceCalendarSection() {
             <iframe
               src={CALENDAR_EMBED_URL}
               title={calendar.title}
-              className="h-[500px] w-full border-0 md:h-[700px]"
+              className="h-[700px] w-full border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
