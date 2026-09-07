@@ -5,10 +5,6 @@ import { spaceRentalContent } from "@/lib/data/space-rental";
 const CALENDAR_EMBED_URL =
   "https://calendar.google.com/calendar/embed?src=56b774f3ff7d61cce27554ef322d7aa4acc1fc33b5da6ee3c9f3d3c28ed689fd%40group.calendar.google.com&ctz=Asia%2FTaipei";
 
-const CALENDAR_EMBED_URL_AGENDA = `${CALENDAR_EMBED_URL}&mode=AGENDA`;
-
-const IFRAME_CLASS = "h-[700px] w-full border-0";
-
 export function SpaceCalendarSection() {
   const { calendar } = spaceRentalContent;
 
@@ -27,16 +23,9 @@ export function SpaceCalendarSection() {
         <FadeIn className="mt-10 sm:mt-14" delay={0.08}>
           <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-[0_8px_24px_rgba(0,0,0,0.04)]">
             <iframe
-              src={CALENDAR_EMBED_URL_AGENDA}
-              title={calendar.title}
-              className={`${IFRAME_CLASS} md:hidden`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-            <iframe
               src={CALENDAR_EMBED_URL}
               title={calendar.title}
-              className={`${IFRAME_CLASS} hidden md:block`}
+              className="h-[700px] w-full border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
