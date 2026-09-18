@@ -105,6 +105,18 @@ export function Footer() {
             </Link>
           </div>
         </div>
+
+        <p className="mt-6 text-center text-[10px] leading-relaxed text-white/30 sm:text-[11px]">
+          網站製作｜
+          <a
+            href="https://www.sitecraft.com.tw"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-white/45"
+          >
+            好站製所 SITECRAFT
+          </a>
+        </p>
       </div>
     </footer>
   );
