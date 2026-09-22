@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getPublicCourseIds } from "@/lib/courses/queries";
 import { getEventSlugs } from "@/lib/events/queries";
+import { getNewsArticleSlugs } from "@/lib/news-articles/queries";
 import { siteConfig } from "@/lib/data/site";
 import { pageSeo } from "@/lib/seo/pages";
 
@@ -22,9 +23,10 @@ const STATIC_PAGES = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [courseIds, eventSlugs] = await Promise.all([
+  const [courseIds, eventSlugs, articleSlugs] = await Promise.all([
     getPublicCourseIds(),
     getEventSlugs(),
+    Promise.resolve(getNewsArticleSlugs()),
   ]);
 
   const now = new Date();
@@ -47,6 +49,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "weekly" as const,
       priority: 0.7,
+    })),
+    ...articleSlugs.map((slug) => ({
+      url: new URL(`/news/${slug}`, siteConfig.url).toString(),
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
     })),
   ];
 }

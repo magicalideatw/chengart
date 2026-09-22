@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { NewsSection } from "@/components/home/NewsSection";
+import { NewsArticlesSection } from "@/components/news/NewsArticlesSection";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { pageSeo } from "@/lib/seo/pages";
 
@@ -13,6 +14,7 @@ export default function NewsPage() {
       <Navbar />
       <main>
         <NewsSection headingLevel="h1" />
+        <NewsArticlesSection />
       </main>
       <Footer />
     </>

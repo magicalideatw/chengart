@@ -7,6 +7,7 @@ import { getDefaultOgImageUrl } from "@/lib/seo/constants";
 import { toIsoDateTime, truncateDescription } from "@/lib/seo/format";
 import { homeSectionSeo } from "@/lib/seo/pages";
 import type { ClassSession } from "@/lib/sessions/types";
+import type { NewsArticle } from "@/lib/news-articles/types";
 import type { TicketTypeRecord } from "@/lib/ticket-types/types";
 
 const organizationAddress = {
@@ -334,5 +335,29 @@ export function buildMarketingEventJsonLd(
           },
         }
       : {}),
+  };
+}
+
+export function buildArticleJsonLd(article: NewsArticle, pageUrl: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.seo.description,
+    datePublished: article.publishedAt,
+    dateModified: article.publishedAt,
+    inLanguage: "zh-TW",
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": pageUrl,
+    },
+    author: {
+      "@id": `${siteConfig.url}/#organization`,
+    },
+    publisher: {
+      "@id": `${siteConfig.url}/#organization`,
+    },
+    articleSection: article.category,
+    keywords: article.seo.keywords.join(", "),
   };
 }
