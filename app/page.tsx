@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "@/components/home/HeroSection";
+import { HomeArticlesColumnSection } from "@/components/home/HomeArticlesColumnSection";
 import { PerformanceServicesSection } from "@/components/home/PerformanceServicesSection";
 import { LatestPerformancesSection } from "@/components/home/LatestPerformancesSection";
 import { CoursesSection } from "@/components/home/CoursesSection";
@@ -24,6 +25,7 @@ export default function Home() {
         <CoursesSection />
         <AboutSection />
         <PerformanceServicesSection />
+        <HomeArticlesColumnSection />
         <NewsSection />
         <ContactSection />
         <HomeSeoIntroSection />
