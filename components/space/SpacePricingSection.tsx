@@ -21,7 +21,7 @@ function PricingRateBlock({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gold">
+      <p className="text-xs font-semibold leading-snug tracking-[0.08em] text-gold [text-wrap:balance]">
         {label}
       </p>
       <dl className="mt-2 space-y-1.5 text-sm">
@@ -79,9 +79,9 @@ function PricingHourlyBlock({ plan }: { plan: PricingPlan }) {
           <dt>平日</dt>
           <dd>{formatHourlyPrice(plan.weekday.hourly)}</dd>
         </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt>假日</dt>
-          <dd>{formatHourlyPrice(plan.holiday.hourly)}</dd>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <dt className="min-w-0 shrink">{spaceRentalContent.pricing.holidayRateLabel}</dt>
+          <dd className="shrink-0">{formatHourlyPrice(plan.holiday.hourly)}</dd>
         </div>
       </dl>
     </div>
@@ -103,7 +103,7 @@ function PricingPlanCard({ plan }: { plan: PricingPlan }) {
           fullPrice={plan.weekday.full}
         />
         <PricingRateBlock
-          label="假日"
+          label={spaceRentalContent.pricing.holidayRateLabel}
           slotPrice={plan.holiday.slot}
           fullPrice={plan.holiday.full}
         />

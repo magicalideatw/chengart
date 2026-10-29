@@ -135,7 +135,9 @@ export const spaceRentalContent = {
   pricing: {
     label: "Pricing",
     title: "租借價格",
-    description: "依活動性質提供不同方案，歡迎選擇最符合需求的租借方式。",
+    description:
+      "以下為正式租借價格（自 2026/11/01 起適用）。依活動性質提供不同方案，歡迎選擇最符合需求的租借方式。",
+    holidayRateLabel: "假日（週五、週六、週日及國定假日）",
     timeSlotsTitle: "租借時段",
     timeSlots: [
       { id: "a", label: "A 時段", time: "10:00－14:00" },
@@ -148,15 +150,15 @@ export const spaceRentalContent = {
         id: "cultural-non-fee",
         title: "藝文團體（非場地收費活動）",
         audience: "學生、排練",
-        weekday: { slot: 450, full: 1200, hourly: 150 },
-        holiday: { slot: 550, full: 1500, hourly: 180 },
+        weekday: { slot: 600, full: 1700, hourly: 200 },
+        holiday: { slot: 700, full: 2000, hourly: 250 },
       },
       {
         id: "cultural-fee",
         title: "藝文團體（場地收費活動）",
         audience: "工作坊、講座、收費課程",
-        weekday: { slot: 600, full: 1800, hourly: 200 },
-        holiday: { slot: 800, full: 2200, hourly: 250 },
+        weekday: { slot: 700, full: 2000, hourly: 250 },
+        holiday: { slot: 800, full: 2300, hourly: 300 },
       },
       {
         id: "corporate",
@@ -170,7 +172,7 @@ export const spaceRentalContent = {
     promoNotice: {
       title: "🎉 試營運優惠",
       description:
-        "以上為試營運優惠價格，長期租借、固定開課或包場合作，歡迎聯繫洽詢專案優惠。",
+        "2026/10/31（含）以前適用試營運優惠價格；自 2026/11/01 起改為上表正式價格。長期租借、固定開課或包場合作，歡迎聯繫洽詢專案優惠。",
     },
     rentalNotice: {
       title: "📌 租借說明",
